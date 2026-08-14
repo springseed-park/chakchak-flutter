@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -693,19 +694,20 @@ class _LandingHeader extends StatelessWidget {
           Icon(Icons.signal_cellular_alt_rounded, size: 13),
         ]),
         const SizedBox(height: 22),
-        Row(children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           const Text('착착',
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -1.2)),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text('CHAKCHAK',
+              key: const ValueKey('landing-english-logo'),
               style: TextStyle(
-                  fontSize: AppA11y.captionSize,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: AppColors.ink.withValues(alpha: .82))),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 1,
+                  color: AppColors.ink.withValues(alpha: .76))),
         ]),
       ]);
 }
@@ -715,10 +717,15 @@ class _LandingGlow extends StatelessWidget {
   final Color color;
   final double size;
   @override
-  Widget build(BuildContext context) => Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle));
+  Widget build(BuildContext context) => ImageFiltered(
+        key: const ValueKey('landing-glow-blur'),
+        imageFilter: ui.ImageFilter.blur(
+            sigmaX: 12, sigmaY: 12, tileMode: ui.TileMode.decal),
+        child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      );
 }
 
 class _PortfolioPhoneFrame extends StatelessWidget {

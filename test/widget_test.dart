@@ -14,6 +14,12 @@ void main() {
         find.text('내 옷으로,\n오늘의 코디가 착착.', findRichText: true), findsOneWidget);
     expect(find.text('Google로 시작하기'), findsOneWidget);
     expect(find.byKey(const ValueKey('google-brand-mark')), findsOneWidget);
+    expect(find.byKey(const ValueKey('landing-glow-blur')), findsNWidgets(2));
+
+    final englishLogo =
+        tester.widget<Text>(find.byKey(const ValueKey('landing-english-logo')));
+    expect(englishLogo.style?.fontSize, 9);
+    expect(englishLogo.style?.fontWeight, FontWeight.w500);
 
     final indicator = find.byKey(const ValueKey('landing-indicator-row'));
     final googleButton = find.byKey(const ValueKey('google-start-button'));
