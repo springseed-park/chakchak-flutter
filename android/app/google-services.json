@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "906822126204",
+    "project_id": "chakchakchakchak",
+    "storage_bucket": "chakchakchakchak.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:906822126204:android:fd19ff0ff8594354edd7f9",
+        "android_client_info": {
+          "package_name": "com.springseed.chakchak"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "906822126204-racklh8ishoo303e2bnqsn0goj0iqh35.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMBAypXi1p9YL0SNK1JmQeQG6wLmljlh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "906822126204-racklh8ishoo303e2bnqsn0goj0iqh35.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

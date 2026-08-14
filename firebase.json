@@ -1,0 +1,53 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "chakchakchakchak",
+          "appId": "1:906822126204:android:fd19ff0ff8594354edd7f9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "chakchakchakchak",
+          "configurations": {
+            "android": "1:906822126204:android:fd19ff0ff8594354edd7f9",
+            "web": "1:906822126204:web:289b3c642e0dcd3eedd7f9"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": [
+    {
+      "target": "legal",
+      "public": "legal/public",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**/*.html",
+          "headers": [
+            {"key": "Cache-Control", "value": "public,max-age=300"},
+            {"key": "X-Content-Type-Options", "value": "nosniff"},
+            {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"}
+          ]
+        }
+      ]
+    }
+  ]
+}

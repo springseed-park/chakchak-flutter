@@ -2,15 +2,30 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
-void main() => runApp(const ChakchakApp());
+import 'firebase_options.dart';
+import 'services/app_auth.dart';
+import 'services/backend_service.dart';
+import 'services/location_weather_service.dart';
+import 'services/user_profile_store.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const ChakchakApp());
+}
 
 class ChakchakApp extends StatelessWidget {
-  const ChakchakApp({super.key});
+  const ChakchakApp({super.key, this.auth});
+
+  final AppAuth? auth;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +40,7 @@ class ChakchakApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
       ),
-      home: const AppFlow(),
+      home: AppFlow(auth: auth),
     );
   }
 }
@@ -93,7 +108,9 @@ const List<String> landingCharacterAssets = [
 ];
 
 class AppFlow extends StatefulWidget {
-  const AppFlow({super.key});
+  const AppFlow({super.key, this.auth});
+
+  final AppAuth? auth;
 
   @override
   State<AppFlow> createState() => _AppFlowState();
@@ -102,37 +119,95 @@ class AppFlow extends StatefulWidget {
 class _AppFlowState extends State<AppFlow> {
   AppStage _stage = AppStage.landing;
   GarmentItem? _onboardingGarment;
-  bool _onboardingCompleted = false;
-  bool _signupTermsAccepted = false;
+  bool _isRestoringSession = true;
+  late final AppAuth _auth;
+  UserProfileStore? _profileStore;
+  BackendService? _backend;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth = widget.auth ??
+        (Firebase.apps.isEmpty ? PreviewAppAuth() : FirebaseAppAuth());
+    if (Firebase.apps.isNotEmpty) {
+      _profileStore = UserProfileStore();
+      _backend = BackendService();
+    }
+    unawaited(_restoreSession());
+  }
+
+  Future<void> _restoreSession() async {
+    final userId = _auth.currentUserId;
+    if (userId == null) {
+      if (mounted) setState(() => _isRestoringSession = false);
+      return;
+    }
+    final completed = await (_profileStore?.hasCompletedOnboarding(userId) ??
+        Future<bool>.value(false));
+    if (!mounted) return;
+    setState(() {
+      _stage = completed ? AppStage.home : AppStage.onboarding;
+      _isRestoringSession = false;
+    });
+  }
 
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
-  void _deleteAccount() => setState(() {
-        _onboardingGarment = null;
-        _onboardingCompleted = false;
-        _signupTermsAccepted = false;
-        _stage = AppStage.landing;
-      });
+  Future<void> _signedIn(AppSignInResult result) async {
+    final completed =
+        await (_profileStore?.hasCompletedOnboarding(result.userId) ??
+            Future<bool>.value(false));
+    if (!mounted) return;
+    setState(() => _stage = completed ? AppStage.home : AppStage.onboarding);
+  }
+
+  Future<void> _logout() async {
+    await _auth.signOut();
+    if (mounted) _goTo(AppStage.landing);
+  }
+
+  Future<void> _deleteAccount() async {
+    final userId = _auth.currentUserId;
+    try {
+      await _backend?.deleteMyData();
+    } catch (_) {
+      // Functions 미배포 개발 환경에서는 로컬 및 인증 계정 삭제를 계속 진행합니다.
+    }
+    if (userId != null) await _profileStore?.deleteProfile(userId);
+    await _auth.deleteCurrentUser();
+    if (!mounted) return;
+    setState(() {
+      _onboardingGarment = null;
+      _stage = AppStage.landing;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isRestoringSession) {
+      return const Scaffold(
+        backgroundColor: AppColors.paper,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return switch (_stage) {
       AppStage.landing => LandingScreen(
-          requiresSignupConsent: !_signupTermsAccepted,
-          onSignupConsentAccepted: () =>
-              setState(() => _signupTermsAccepted = true),
-          onSignedIn: () => _goTo(
-              _onboardingCompleted ? AppStage.home : AppStage.onboarding)),
+          auth: _auth,
+          onSignedIn: _signedIn,
+        ),
       AppStage.onboarding => OnboardingScreen(onDone: (garment) {
+          final userId = _auth.currentUserId;
+          if (userId != null) {
+            unawaited(_profileStore?.markOnboardingCompleted(userId));
+          }
           setState(() {
             _onboardingGarment = garment;
-            _onboardingCompleted = true;
             _stage = AppStage.home;
           });
         }),
       AppStage.home => MainShell(
           initialGarment: _onboardingGarment,
-          onLogout: () => _goTo(AppStage.landing),
+          onLogout: _logout,
           onDeleteAccount: _deleteAccount),
     };
   }
@@ -141,14 +216,13 @@ class _AppFlowState extends State<AppFlow> {
 enum AppStage { landing, onboarding, home }
 
 class LandingScreen extends StatefulWidget {
-  const LandingScreen(
-      {super.key,
-      required this.onSignedIn,
-      required this.requiresSignupConsent,
-      required this.onSignupConsentAccepted});
-  final VoidCallback onSignedIn;
-  final bool requiresSignupConsent;
-  final VoidCallback onSignupConsentAccepted;
+  const LandingScreen({
+    super.key,
+    required this.auth,
+    required this.onSignedIn,
+  });
+  final AppAuth auth;
+  final Future<void> Function(AppSignInResult result) onSignedIn;
 
   @override
   State<LandingScreen> createState() => _LandingScreenState();
@@ -167,15 +241,25 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Future<void> _signIn() async {
     setState(() => _isSigningIn = true);
-    await Future<void>.delayed(const Duration(milliseconds: 850));
-    if (!mounted) return;
-    setState(() => _isSigningIn = false);
-    if (widget.requiresSignupConsent) {
-      final accepted = await _requestSignupConsent();
-      if (!accepted || !mounted) return;
-      widget.onSignupConsentAccepted();
+    try {
+      final result = await widget.auth.signInWithGoogle();
+      if (!mounted) return;
+      if (result.isNewUser) {
+        final accepted = await _requestSignupConsent();
+        if (!accepted || !mounted) {
+          await widget.auth.deleteCurrentUser();
+          return;
+        }
+      }
+      if (mounted) await widget.onSignedIn(result);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Google 로그인에 실패했어요. 잠시 후 다시 시도해주세요.\n$error'),
+      ));
+    } finally {
+      if (mounted) setState(() => _isSigningIn = false);
     }
-    if (mounted) widget.onSignedIn();
   }
 
   Future<bool> _requestSignupConsent() async {
@@ -973,8 +1057,8 @@ class MainShell extends StatefulWidget {
       required this.onLogout,
       required this.onDeleteAccount,
       this.initialGarment});
-  final VoidCallback onLogout;
-  final VoidCallback onDeleteAccount;
+  final Future<void> Function() onLogout;
+  final Future<void> Function() onDeleteAccount;
   final GarmentItem? initialGarment;
 
   @override
@@ -1011,7 +1095,8 @@ class _MainShellState extends State<MainShell> {
           if (garment != null) setState(() => garments.insert(0, garment));
         },
       ),
-      MateChatScreen(onExit: () => setState(() => index = 0)),
+      MateChatScreen(
+          garments: garments, onExit: () => setState(() => index = 0)),
       ProfileScreen(
           onLogout: widget.onLogout, onDeleteAccount: widget.onDeleteAccount),
     ];
@@ -1099,6 +1184,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final LocationWeatherService _weatherService = LocationWeatherService();
+  WeatherSnapshot? _weather;
+  String _locationLabel = '서울 성동구';
+  bool _weatherLoading = false;
   final List<TodaySchedule> schedules = [
     const TodaySchedule(id: 1, time: '09:00', title: '출근'),
     const TodaySchedule(id: 2, time: '14:00', title: '외부 미팅'),
@@ -1126,6 +1215,30 @@ class _HomeScreenState extends State<HomeScreen> {
   void _deleteSchedule(int id) =>
       setState(() => schedules.removeWhere((item) => item.id == id));
 
+  Future<void> _refreshWeather() async {
+    if (_weatherLoading) return;
+    setState(() => _weatherLoading = true);
+    try {
+      final result = await _weatherService.loadCurrentWeather();
+      if (!mounted) return;
+      setState(() {
+        _weather = result.weather;
+        _locationLabel = result.locationLabel;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${result.weather.sourceLabel}를 새로 불러왔어요.'),
+        duration: const Duration(seconds: 1),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('위치 권한과 기상청 API 연결을 확인해주세요.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _weatherLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => SafeArea(
         child: CustomScrollView(
@@ -1134,7 +1247,13 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
               sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                WeatherHero(schedules: schedules),
+                WeatherHero(
+                  schedules: schedules,
+                  weather: _weather,
+                  locationLabel: _locationLabel,
+                  loading: _weatherLoading,
+                  onRefresh: _refreshWeather,
+                ),
                 const SizedBox(height: 15),
                 _ScheduleCard(
                     schedules: schedules,
@@ -1166,8 +1285,19 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class WeatherHero extends StatelessWidget {
-  const WeatherHero({super.key, required this.schedules});
+  const WeatherHero({
+    super.key,
+    required this.schedules,
+    required this.weather,
+    required this.locationLabel,
+    required this.loading,
+    required this.onRefresh,
+  });
   final List<TodaySchedule> schedules;
+  final WeatherSnapshot? weather;
+  final String locationLabel;
+  final bool loading;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -1203,6 +1333,18 @@ class WeatherHero extends StatelessWidget {
       colors = const [Color(0xFF59609B), Color(0xFF757DB3), Color(0xFF9DA3CA)];
       bubble = '오래 집중해도 편안하도록 부드러운 소재와 가벼운 겉옷을 추천할게요.';
     }
+    final isRain = (weather?.weatherCode ?? 0) >= 50;
+    if (isRain) {
+      asset = 'assets/characters/chakchak-rain.png';
+      colors = const [Color(0xFF466C8A), Color(0xFF6489A6), Color(0xFF8FB1C8)];
+      bubble = '비 소식이 있어요. 우산과 물에 강한 신발을 챙기고 얇은 겉옷도 준비할까요?';
+    }
+    final temperature = weather?.temperature.round() ?? 28;
+    final apparentTemperature = weather?.apparentTemperature.round() ?? 30;
+    final humidity = weather?.humidity.round() ?? 48;
+    final windSpeed = weather?.windSpeed.toStringAsFixed(1) ?? '2.0';
+    final precipitation = weather?.precipitationProbability.round() ?? 0;
+    final condition = isRain ? '비' : '맑음';
     return Container(
       height: 370,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 17),
@@ -1218,9 +1360,14 @@ class WeatherHero extends StatelessWidget {
           BrandMark(color: foreground),
           const Spacer(),
           IconButton(
-              onPressed: () {},
+              onPressed: loading ? null : onRefresh,
               tooltip: '날씨 새로고침',
-              icon: const Icon(Icons.refresh_rounded),
+              icon: loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.refresh_rounded),
               color: Colors.white,
               style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: .16)))
@@ -1232,7 +1379,7 @@ class WeatherHero extends StatelessWidget {
               height: 17,
               colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn)),
           const SizedBox(width: 5),
-          Text('서울 성동구',
+          Text(locationLabel,
               style: TextStyle(
                   color: foreground, fontWeight: FontWeight.w700, fontSize: 13))
         ]),
@@ -1257,12 +1404,12 @@ class WeatherHero extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('8월 13일 · 수요일',
+                    Text(formatKoreanDate(DateTime.now()),
                         style: TextStyle(
                             color: foreground.withValues(alpha: .8),
                             fontSize: 10,
                             fontWeight: FontWeight.w600)),
-                    Text('28°',
+                    Text('$temperature°',
                         style: TextStyle(
                             fontSize: 60,
                             height: .95,
@@ -1270,7 +1417,7 @@ class WeatherHero extends StatelessWidget {
                             color: foreground,
                             letterSpacing: -1)),
                     const SizedBox(height: 5),
-                    Text('맑음 · 체감 30°',
+                    Text('$condition · 체감 $apparentTemperature°',
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: foreground,
@@ -1289,11 +1436,11 @@ class WeatherHero extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: Colors.white.withValues(alpha: .16))),
             child: Row(children: [
-              for (final stat in const [
-                ('체감', '30°'),
-                ('강수', '0%'),
-                ('바람', '2m/s'),
-                ('습도', '48%')
+              for (final stat in [
+                ('체감', '$apparentTemperature°'),
+                ('강수', '$precipitation%'),
+                ('바람', '${windSpeed}m/s'),
+                ('습도', '$humidity%')
               ])
                 Expanded(
                     child: Column(children: [
@@ -2304,9 +2451,10 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
 }
 
 class MateChatScreen extends StatefulWidget {
-  const MateChatScreen({super.key, this.pinned, this.onExit});
+  const MateChatScreen({super.key, this.pinned, this.onExit, this.garments});
   final GarmentItem? pinned;
   final VoidCallback? onExit;
+  final List<GarmentItem>? garments;
 
   @override
   State<MateChatScreen> createState() => _MateChatScreenState();
@@ -2315,6 +2463,9 @@ class MateChatScreen extends StatefulWidget {
 class _MateChatScreenState extends State<MateChatScreen> {
   final textController = TextEditingController();
   late List<ChatLine> lines;
+  late List<GarmentItem> selectedGarments;
+  final BackendService _backend = BackendService();
+  bool _isReplying = false;
 
   @override
   void initState() {
@@ -2324,6 +2475,7 @@ class _MateChatScreenState extends State<MateChatScreen> {
           ? '오늘은 28°로 더워요. 오후 외부 미팅에 맞춰 가볍고 단정한 코디를 골라봤어요.'
           : '${widget.pinned!.name}을 꼭 입고 싶구나! 이 옷을 중심으로 코디해볼게요.')
     ];
+    selectedGarments = (widget.garments ?? sampleGarments).take(3).toList();
   }
 
   @override
@@ -2332,14 +2484,62 @@ class _MateChatScreenState extends State<MateChatScreen> {
     super.dispose();
   }
 
-  void _send([String? quick]) {
+  Future<void> _send([String? quick]) async {
     final message = quick ?? textController.text.trim();
-    if (message.isEmpty) return;
+    if (message.isEmpty || _isReplying) return;
     setState(() {
       lines.add(ChatLine.user(message));
       textController.clear();
-      lines.add(ChatLine.mate(_answerFor(message)));
+      _isReplying = true;
     });
+    try {
+      final wardrobe = widget.garments ?? sampleGarments;
+      final response = await _backend.recommendOutfit(
+        message: message,
+        wardrobe: wardrobe
+            .map((item) => {
+                  'name': item.name,
+                  'category': item.category,
+                  'color': item.color,
+                })
+            .toList(),
+        schedules: const [
+          {'title': '오후 외부 미팅', 'time': '15:00'}
+        ],
+        weather: const {
+          'temperature': 28,
+          'condition': '맑음',
+          'precipitationProbability': 10,
+        },
+        history: lines
+            .take(max(0, lines.length - 1))
+            .map((line) => {
+                  'role': line.mine ? 'user' : 'assistant',
+                  'content': line.text,
+                })
+            .toList(),
+      );
+      final byName = {for (final item in wardrobe) item.name: item};
+      if (!mounted) return;
+      setState(() {
+        lines.add(ChatLine.mate(response.answer));
+        selectedGarments = response.selectedItemNames
+            .map((name) => byName[name])
+            .whereType<GarmentItem>()
+            .toList();
+        if (selectedGarments.isEmpty) {
+          selectedGarments = wardrobe.take(3).toList();
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => lines.add(ChatLine.mate(_answerFor(message))));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('AI 연결이 잠시 불안정해 기본 추천을 보여드려요.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _isReplying = false);
+    }
   }
 
   void _resetChat() {
@@ -2415,7 +2615,9 @@ class _MateChatScreenState extends State<MateChatScreen> {
               padding: const EdgeInsets.all(18),
               itemCount: lines.length + 1,
               itemBuilder: (context, index) {
-                if (index == lines.length) return const MateOutfitSuggestion();
+                if (index == lines.length) {
+                  return MateOutfitSuggestion(items: selectedGarments);
+                }
                 return ChatBubble(line: lines[index]);
               },
             ),
@@ -2430,7 +2632,7 @@ class _MateChatScreenState extends State<MateChatScreen> {
                         padding: const EdgeInsets.only(right: 8),
                         child: ActionChip(
                             label: Text(value),
-                            onPressed: () => _send(value),
+                            onPressed: _isReplying ? null : () => _send(value),
                             backgroundColor: AppColors.mist,
                             side: BorderSide.none),
                       ))
@@ -2460,8 +2662,13 @@ class _MateChatScreenState extends State<MateChatScreen> {
               ),
               const SizedBox(width: 8),
               IconButton.filled(
-                onPressed: _send,
-                icon: const Icon(Icons.arrow_upward_rounded),
+                onPressed: _isReplying ? null : _send,
+                icon: _isReplying
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.arrow_upward_rounded),
                 style: IconButton.styleFrom(
                     backgroundColor: AppColors.ink,
                     foregroundColor: Colors.white),
@@ -2534,7 +2741,8 @@ class _ChatbotAvatar extends StatelessWidget {
 }
 
 class MateOutfitSuggestion extends StatelessWidget {
-  const MateOutfitSuggestion({super.key});
+  const MateOutfitSuggestion({super.key, required this.items});
+  final List<GarmentItem> items;
   @override
   Widget build(BuildContext context) => Container(
       margin: const EdgeInsets.only(left: 41, bottom: 16),
@@ -2547,7 +2755,7 @@ class MateOutfitSuggestion extends StatelessWidget {
         const Text('이 조합은 어때요?', style: TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         Row(children: [
-          for (final item in sampleGarments.take(3))
+          for (final item in items.take(3))
             Expanded(
                 child: Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -2565,8 +2773,8 @@ class MateOutfitSuggestion extends StatelessWidget {
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen(
       {super.key, required this.onLogout, required this.onDeleteAccount});
-  final VoidCallback onLogout;
-  final VoidCallback onDeleteAccount;
+  final Future<void> Function() onLogout;
+  final Future<void> Function() onDeleteAccount;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -2738,7 +2946,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ));
     confirmationController.dispose();
-    if (confirmed == true) widget.onDeleteAccount();
+    if (confirmed == true) {
+      try {
+        await widget.onDeleteAccount();
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('보안을 위해 Google 재로그인 후 다시 탈퇴해주세요.'),
+        ));
+      }
+    }
   }
 
   Future<void> _showPrivacyPolicy() => showDialog<void>(
@@ -3062,7 +3279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: () => Navigator.of(context).pop(true),
                       child: const Text('로그아웃'))
                 ]));
-    if (confirmed == true) widget.onLogout();
+    if (confirmed == true) await widget.onLogout();
   }
 
   void _toggleNotification() {

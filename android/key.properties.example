@@ -1,0 +1,6 @@
+# android/key.properties로 복사한 뒤 실제 값으로 변경하세요.
+# 이 파일과 키스토어는 Git에 커밋하지 않습니다.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+storeFile=../keystore/chakchak-upload.jks

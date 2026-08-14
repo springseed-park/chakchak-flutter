@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "chakchakchakchak"
+  },
+  "targets": {
+    "chakchakchakchak": {
+      "hosting": {
+        "legal": [
+          "chakchak-privacy"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

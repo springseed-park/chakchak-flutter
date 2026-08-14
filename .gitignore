@@ -44,5 +44,20 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android upload signing material
+/android/key.properties
+/android/keystore/
+*.jks
+*.keystore
+
+# Local API secrets and Firebase emulator state
+.env
+.env.*
+!.env.example
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+node_modules/
+
 # Widget Preview related
 .widget_preview/
