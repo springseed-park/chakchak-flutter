@@ -622,8 +622,10 @@ class _LandingCanvas extends StatelessWidget {
                                         ),
                                         const Spacer(),
                                         const LandingPreview(),
-                                        const SizedBox(height: 18),
+                                        const SizedBox(height: 10),
                                         FilledButton.icon(
+                                          key: const ValueKey(
+                                              'google-start-button'),
                                           onPressed: isSigningIn
                                               ? null
                                               : () => onSignIn(context),
@@ -865,8 +867,10 @@ class _LandingPreviewState extends State<LandingPreview> {
           },
         ),
       ),
-      const SizedBox(height: 7),
+      const SizedBox(height: 4),
       Row(
+          key: const ValueKey('landing-indicator-row'),
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
               _examples.length,
@@ -886,8 +890,9 @@ class _LandingPreviewState extends State<LandingPreview> {
                         _startTimer();
                       },
                       borderRadius: BorderRadius.circular(99),
-                      child: SizedBox.square(
-                        dimension: AppA11y.touchTarget,
+                      child: SizedBox(
+                        width: 30,
+                        height: 28,
                         child: Center(
                           child: AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
@@ -4223,36 +4228,13 @@ class _Pill extends StatelessWidget {
 class GoogleMark extends StatelessWidget {
   const GoogleMark({super.key});
   @override
-  Widget build(BuildContext context) =>
-      const CustomPaint(size: Size.square(20), painter: _GoogleMarkPainter());
-}
-
-class _GoogleMarkPainter extends CustomPainter {
-  const _GoogleMarkPainter();
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.2
-      ..strokeCap = StrokeCap.butt;
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawArc(rect, -.12, 1.75, false, paint);
-    paint.color = const Color(0xFF34A853);
-    canvas.drawArc(rect, 1.63, 1.05, false, paint);
-    paint.color = const Color(0xFFFBBC05);
-    canvas.drawArc(rect, 2.68, .82, false, paint);
-    paint.color = const Color(0xFFEA4335);
-    canvas.drawArc(rect, 3.50, 1.05, false, paint);
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawLine(Offset(size.width * .53, size.height * .51),
-        Offset(size.width * .91, size.height * .51), paint);
-    canvas.drawLine(Offset(size.width * .89, size.height * .49),
-        Offset(size.width * .89, size.height * .72), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) => SvgPicture.asset(
+        'assets/icons/google.svg',
+        key: const ValueKey('google-brand-mark'),
+        width: 20,
+        height: 20,
+        excludeFromSemantics: true,
+      );
 }
 
 class _ConsentRow extends StatelessWidget {

@@ -13,6 +13,14 @@ void main() {
     expect(
         find.text('내 옷으로,\n오늘의 코디가 착착.', findRichText: true), findsOneWidget);
     expect(find.text('Google로 시작하기'), findsOneWidget);
+    expect(find.byKey(const ValueKey('google-brand-mark')), findsOneWidget);
+
+    final indicator = find.byKey(const ValueKey('landing-indicator-row'));
+    final googleButton = find.byKey(const ValueKey('google-start-button'));
+    expect(tester.getSize(indicator).width, 90);
+    expect(
+        tester.getTopLeft(googleButton).dy - tester.getBottomLeft(indicator).dy,
+        lessThanOrEqualTo(12));
   });
 
   testWidgets('주요 로그인 버튼은 최소 터치 영역을 충족한다', (tester) async {
