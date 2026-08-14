@@ -35,9 +35,77 @@ class ChakchakApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Paperlogy',
+        visualDensity: VisualDensity.standard,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.ink,
           brightness: Brightness.light,
+        ),
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w800),
+          displayMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+          headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+          headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          titleSmall: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          bodyLarge: TextStyle(fontSize: 16, height: 1.5),
+          bodyMedium: TextStyle(fontSize: 15, height: 1.5),
+          bodySmall: TextStyle(fontSize: 13, height: 1.45),
+          labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          labelMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        iconTheme: const IconThemeData(size: AppA11y.iconSize),
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            minimumSize: const Size.square(AppA11y.touchTarget),
+            iconSize: AppA11y.iconSize,
+            tapTargetSize: MaterialTapTargetSize.padded,
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(48, AppA11y.controlHeight),
+            textStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(48, AppA11y.controlHeight),
+            textStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, AppA11y.touchTarget),
+            textStyle:
+                const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          helperStyle: TextStyle(fontSize: 13, color: AppColors.muted),
+          hintStyle: TextStyle(fontSize: 15, color: AppColors.muted),
+          labelStyle: TextStyle(fontSize: 15, color: AppColors.muted),
+          errorStyle: TextStyle(fontSize: 13),
+        ),
+        chipTheme: const ChipThemeData(
+          labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          height: 72,
+          labelTextStyle: WidgetStatePropertyAll(
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        ),
+        tooltipTheme: const TooltipThemeData(
+          textStyle: TextStyle(fontSize: 13, color: Colors.white),
+          waitDuration: Duration(milliseconds: 400),
         ),
       ),
       home: AppFlow(auth: auth),
@@ -56,6 +124,17 @@ class AppColors {
   static const lavender = Color(0xFFCBBDEE);
   static const sand = Color(0xFFF3D393);
   static const line = Color(0xFFE5E9E7);
+  static const muted = Color(0xFF596561);
+  static const onDarkMuted = Color(0xE6FFFFFF);
+}
+
+class AppA11y {
+  static const touchTarget = 48.0;
+  static const controlHeight = 52.0;
+  static const iconSize = 24.0;
+  static const compactIconSize = 20.0;
+  static const captionSize = 12.0;
+  static const metadataSize = 13.0;
 }
 
 class AppRadius {
@@ -284,7 +363,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                   fontSize: 21, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 6),
                           const Text('처음 가입할 때 한 번만 동의하면 됩니다.',
-                              style: TextStyle(color: Color(0xFF6A7773))),
+                              style: TextStyle(color: AppColors.muted)),
                           const SizedBox(height: 14),
                           _ConsentRow(
                               value: terms,
@@ -467,7 +546,7 @@ class _LandingCanvas extends StatelessWidget {
                                           'MY PERSONAL OUTFIT ASSISTANT',
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
-                                              fontSize: 10,
+                                              fontSize: AppA11y.captionSize,
                                               fontWeight: FontWeight.w800,
                                               letterSpacing: 1.8,
                                               color: AppColors.mintDark),
@@ -497,7 +576,7 @@ class _LandingCanvas extends StatelessWidget {
                                               fontSize: 13,
                                               height: 1.5,
                                               fontWeight: FontWeight.w500,
-                                              color: Color(0xFF65716D)),
+                                              color: AppColors.muted),
                                         ),
                                         const Spacer(),
                                         const LandingPreview(),
@@ -578,7 +657,7 @@ class _LandingHeader extends StatelessWidget {
           const SizedBox(width: 6),
           Text('CHAKCHAK',
               style: TextStyle(
-                  fontSize: 9,
+                  fontSize: AppA11y.captionSize,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
                   color: AppColors.ink.withValues(alpha: .82))),
@@ -643,7 +722,7 @@ class _PortfolioIntro extends StatelessWidget {
             SizedBox(height: 22),
             Text('정적인 시안이 아니라 클릭하고 대화할 수 있는 Flutter 프로토타입입니다.',
                 style: TextStyle(
-                    fontSize: 15, height: 1.6, color: Color(0xFF65716D))),
+                    fontSize: 15, height: 1.6, color: AppColors.muted)),
           ],
         ),
       );
@@ -705,9 +784,11 @@ class _LandingPreviewState extends State<LandingPreview> {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final previewHeight = 82.0 + max(0.0, textScale - 1.0) * 44;
     return Column(children: [
       SizedBox(
-        height: 82,
+        height: previewHeight,
         child: PageView.builder(
           controller: _controller,
           onPageChanged: (value) => setState(() {
@@ -746,27 +827,37 @@ class _LandingPreviewState extends State<LandingPreview> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
               _examples.length,
-              (index) => GestureDetector(
-                    onTap: () {
-                      var target = _physicalPage -
-                          (_physicalPage % _examples.length) +
-                          index;
-                      if (target < _physicalPage) target += _examples.length;
-                      _controller.animateToPage(target,
-                          duration: const Duration(milliseconds: 420),
-                          curve: Curves.easeOutCubic);
-                      _startTimer();
-                    },
-                    child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        width: index == _page ? 16 : 5,
-                        height: 5,
-                        margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                        decoration: BoxDecoration(
-                            color: index == _page
-                                ? AppColors.ink
-                                : const Color(0x38253A34),
-                            borderRadius: BorderRadius.circular(99))),
+              (index) => Semantics(
+                    button: true,
+                    selected: index == _page,
+                    label: '${index + 1}번째 코디 예시 보기',
+                    child: InkWell(
+                      onTap: () {
+                        var target = _physicalPage -
+                            (_physicalPage % _examples.length) +
+                            index;
+                        if (target < _physicalPage) target += _examples.length;
+                        _controller.animateToPage(target,
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeOutCubic);
+                        _startTimer();
+                      },
+                      borderRadius: BorderRadius.circular(99),
+                      child: SizedBox.square(
+                        dimension: AppA11y.touchTarget,
+                        child: Center(
+                          child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              width: index == _page ? 16 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                  color: index == _page
+                                      ? AppColors.ink
+                                      : const Color(0x66253A34),
+                                  borderRadius: BorderRadius.circular(99))),
+                        ),
+                      ),
+                    ),
                   ))),
     ]);
   }
@@ -905,7 +996,7 @@ class _OnboardingCity extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800, height: 1.18)),
           const SizedBox(height: 10),
           const Text('내 위치를 찾거나 지역을 직접 고를 수 있어요.',
-              style: TextStyle(color: Color(0xFF6D7774))),
+              style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 18),
           OutlinedButton.icon(
             onPressed: () => onCityChanged('내 위치'),
@@ -961,7 +1052,7 @@ class _OnboardingStyle extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800, height: 1.18)),
           const SizedBox(height: 10),
           const Text('여러 개를 골라도 괜찮아요. 나중에 바꿀 수 있어요.',
-              style: TextStyle(color: Color(0xFF6D7774))),
+              style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 26),
           Wrap(
             spacing: 9,
@@ -1003,7 +1094,7 @@ class _OnboardingCloset extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800, height: 1.18)),
           const SizedBox(height: 10),
           const Text('사진을 찍으면 착착 메이트가 종류와 색을 먼저 찾아볼게요.',
-              style: TextStyle(color: Color(0xFF6D7774))),
+              style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 24),
           InkWell(
             onTap: onAdd,
@@ -1028,7 +1119,8 @@ class _OnboardingCloset extends StatelessWidget {
                           SizedBox(height: 5),
                           Text('사진을 고른 뒤 옷 정보를 입력해요.',
                               style: TextStyle(
-                                  fontSize: 11, color: Color(0xFF75807C)))
+                                  fontSize: AppA11y.captionSize,
+                                  color: AppColors.muted))
                         ])
                   : Stack(fit: StackFit.expand, children: [
                       Padding(
@@ -1301,6 +1393,8 @@ class WeatherHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final heroHeight = 370.0 + max(0.0, textScale - 1.0) * 96;
     final titles = schedules.map((item) => item.title).join(' ');
     var asset = 'assets/characters/chakchak-picnic.png';
     var colors = const [
@@ -1346,7 +1440,7 @@ class WeatherHero extends StatelessWidget {
     final precipitation = weather?.precipitationProbability.round() ?? 0;
     final condition = isRain ? '비' : '맑음';
     return Container(
-      height: 370,
+      height: heroHeight,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 17),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1407,7 +1501,7 @@ class WeatherHero extends StatelessWidget {
                     Text(formatKoreanDate(DateTime.now()),
                         style: TextStyle(
                             color: foreground.withValues(alpha: .8),
-                            fontSize: 10,
+                            fontSize: AppA11y.captionSize,
                             fontWeight: FontWeight.w600)),
                     Text('$temperature°',
                         style: TextStyle(
@@ -1421,7 +1515,7 @@ class WeatherHero extends StatelessWidget {
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: foreground,
-                            fontSize: 12))
+                            fontSize: AppA11y.captionSize))
                   ])),
           Positioned(
               right: -13,
@@ -1447,7 +1541,7 @@ class WeatherHero extends StatelessWidget {
                   Text(stat.$1,
                       style: TextStyle(
                           color: foreground.withValues(alpha: .72),
-                          fontSize: 9)),
+                          fontSize: AppA11y.captionSize)),
                   const SizedBox(height: 3),
                   Text(stat.$2,
                       style: TextStyle(
@@ -1483,7 +1577,7 @@ class _ScheduleCard extends StatelessWidget {
                   children: [
                 Text(formatKoreanDate(DateTime.now()),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF6B7673))),
+                        fontSize: AppA11y.captionSize, color: AppColors.muted)),
                 const SizedBox(height: 2),
                 Text(ordered.isEmpty ? '등록된 일정 없음' : '${ordered.length}개의 일정',
                     style: const TextStyle(
@@ -1503,8 +1597,9 @@ class _ScheduleCard extends StatelessWidget {
               child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text('＋ 버튼을 눌러 오늘 일정을 추가해보세요.',
-                      style:
-                          TextStyle(fontSize: 11, color: Color(0xFF78827F)))))
+                      style: TextStyle(
+                          fontSize: AppA11y.captionSize,
+                          color: AppColors.muted))))
         else
           for (final item in ordered)
             Padding(
@@ -1530,7 +1625,7 @@ class _ScheduleCard extends StatelessWidget {
                       onPressed: () => onDelete(item.id),
                       tooltip: '${item.title} 삭제',
                       icon: const Icon(Icons.close_rounded,
-                          size: 18, color: Color(0xFF929C98))),
+                          size: 18, color: AppColors.muted)),
                 ]),
               ),
             ),
@@ -1588,7 +1683,7 @@ class OutfitCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 19)),
           const SizedBox(height: 7),
           const Text('더운 날씨에도 가볍고, 오늘의 여러 일정을 소화하기 단정한 조합이에요.',
-              style: TextStyle(color: Color(0xFF66716E), height: 1.4)),
+              style: TextStyle(color: AppColors.muted, height: 1.4)),
           const SizedBox(height: 15),
           Container(
               padding: const EdgeInsets.all(11),
@@ -1605,7 +1700,8 @@ class OutfitCard extends StatelessWidget {
                             ? '28°의 더운 날씨와 편안한 하루를 고려했어요.'
                             : '28° 날씨와 $scheduleContext 일정을 고려했어요.',
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600)))
+                            fontSize: AppA11y.captionSize,
+                            fontWeight: FontWeight.w600)))
               ])),
           const SizedBox(height: 16),
           Row(children: [
@@ -1622,6 +1718,7 @@ class OutfitCard extends StatelessWidget {
             const SizedBox(width: 10),
             IconButton.filledTonal(
                 onPressed: () {},
+                tooltip: '다른 코디 보기',
                 icon: const Icon(Icons.shuffle_rounded),
                 style: IconButton.styleFrom(
                     minimumSize: const Size(48, 48),
@@ -1719,7 +1816,8 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                               children: [
                             const Text('나의 코디',
                                 style: TextStyle(
-                                    fontSize: 10, color: Color(0xFF74827D))),
+                                    fontSize: AppA11y.captionSize,
+                                    color: AppColors.muted)),
                             Text('저장한 코디  ${widget.outfitSaved ? 1 : 0}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800)),
@@ -1827,8 +1925,8 @@ class _WardrobeItem extends StatelessWidget {
                       ? item.color
                       : '${item.color} · ${item.location}',
                   style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF71807C),
+                      fontSize: AppA11y.captionSize,
+                      color: AppColors.muted,
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -1929,7 +2027,7 @@ class SavedOutfitsScreen extends StatelessWidget {
                             const SizedBox(height: 13),
                             const Text('8월 13일',
                                 style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: AppA11y.captionSize,
                                     color: AppColors.mintDark,
                                     fontWeight: FontWeight.w800)),
                             const SizedBox(height: 4),
@@ -2026,7 +2124,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                                     children: [
                                       const Text('지난 8월',
                                           style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: AppA11y.captionSize,
                                               color: AppColors.mintDark,
                                               fontWeight: FontWeight.w800)),
                                       const SizedBox(height: 5),
@@ -2309,8 +2407,8 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                                   SizedBox(height: 4),
                                   Text('JPG, PNG · 사진은 앱에서 최적화돼요.',
                                       style: TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF75807C)))
+                                          fontSize: AppA11y.captionSize,
+                                          color: AppColors.muted))
                                 ])
                           : Stack(fit: StackFit.expand, children: [
                               Image.memory(photoBytes!, fit: BoxFit.contain),
@@ -2365,18 +2463,16 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                             IconButton(
                                 onPressed: () => _editCategory(current: value),
                                 tooltip: '$value 이름 수정',
-                                visualDensity: VisualDensity.compact,
                                 icon: Icon(Icons.edit_outlined,
-                                    size: 15,
+                                    size: AppA11y.compactIconSize,
                                     color: category == value
                                         ? Colors.white
                                         : AppColors.ink)),
                             IconButton(
                                 onPressed: () => _deleteCategory(value),
                                 tooltip: '$value 삭제',
-                                visualDensity: VisualDensity.compact,
                                 icon: Icon(Icons.close_rounded,
-                                    size: 16,
+                                    size: AppA11y.compactIconSize,
                                     color: category == value
                                         ? Colors.white
                                         : const Color(0xFFB46B5E)))
@@ -2574,109 +2670,115 @@ class _MateChatScreenState extends State<MateChatScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-            child: Row(children: [
-              const _ChatbotAvatar(size: 48),
-              const SizedBox(width: 10),
-              const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('착착 메이트',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 17)),
-                    Text('지금 코디를 같이 골라봐요',
-                        style:
-                            TextStyle(fontSize: 12, color: Color(0xFF6A7773))),
-                  ]),
-              const Spacer(),
-              PopupMenuButton<String>(
-                tooltip: '대화 메뉴',
-                icon: const Icon(Icons.more_horiz),
-                onSelected: (value) {
-                  if (value == 'reset') _resetChat();
-                  if (value == 'exit') _exitChat();
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'reset', child: Text('대화 초기화')),
-                  PopupMenuItem(
-                      value: 'exit',
-                      child: Text('대화 나가기',
-                          style: TextStyle(color: Color(0xFFA85B4E)))),
-                ],
-              ),
-            ]),
-          ),
-          const Divider(height: 1, color: AppColors.line),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(18),
-              itemCount: lines.length + 1,
-              itemBuilder: (context, index) {
-                if (index == lines.length) {
-                  return MateOutfitSuggestion(items: selectedGarments);
-                }
-                return ChatBubble(line: lines[index]);
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final quickPromptHeight = 64.0 + max(0.0, textScale - 1.0) * 20;
+    return SafeArea(
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+          child: Row(children: [
+            const _ChatbotAvatar(size: 48),
+            const SizedBox(width: 10),
+            const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('착착 메이트',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                  Text('지금 코디를 같이 골라봐요',
+                      style: TextStyle(
+                          fontSize: AppA11y.captionSize,
+                          color: AppColors.muted)),
+                ]),
+            const Spacer(),
+            PopupMenuButton<String>(
+              tooltip: '대화 메뉴',
+              icon: const Icon(Icons.more_horiz),
+              onSelected: (value) {
+                if (value == 'reset') _resetChat();
+                if (value == 'exit') _exitChat();
               },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'reset', child: Text('대화 초기화')),
+                PopupMenuItem(
+                    value: 'exit',
+                    child: Text('대화 나가기',
+                        style: TextStyle(color: Color(0xFFA85B4E)))),
+              ],
             ),
+          ]),
+        ),
+        const Divider(height: 1, color: AppColors.line),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(18),
+            itemCount: lines.length + 1,
+            itemBuilder: (context, index) {
+              if (index == lines.length) {
+                return MateOutfitSuggestion(items: selectedGarments);
+              }
+              return ChatBubble(line: lines[index]);
+            },
           ),
-          SizedBox(
-            height: 54,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-              children: ['오늘 뭐 입지?', '조금 더 화사하게', '비 올 때 괜찮아?', '미팅에 맞춰줘']
-                  .map((value) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                            label: Text(value),
-                            onPressed: _isReplying ? null : () => _send(value),
-                            backgroundColor: AppColors.mist,
-                            side: BorderSide.none),
-                      ))
-                  .toList(),
-            ),
+        ),
+        SizedBox(
+          height: quickPromptHeight,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+            children: ['오늘 뭐 입지?', '조금 더 화사하게', '비 올 때 괜찮아?', '미팅에 맞춰줘']
+                .map((value) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                          label: Text(value),
+                          onPressed: _isReplying ? null : () => _send(value),
+                          backgroundColor: AppColors.mist,
+                          side: BorderSide.none),
+                    ))
+                .toList(),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 9, 16, 13),
-            decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: AppColors.line))),
-            child: Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: textController,
-                  onSubmitted: (_) => _send(),
-                  decoration: InputDecoration(
-                    hintText: '메이트에게 물어보기',
-                    filled: true,
-                    fillColor: AppColors.mist,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.control),
-                        borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 9, 16, 13),
+          decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppColors.line))),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: textController,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(
+                  hintText: '메이트에게 물어보기',
+                  filled: true,
+                  fillColor: AppColors.mist,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                      borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: _isReplying ? null : _send,
-                icon: _isReplying
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.arrow_upward_rounded),
-                style: IconButton.styleFrom(
-                    backgroundColor: AppColors.ink,
-                    foregroundColor: Colors.white),
-              ),
-            ]),
-          ),
-        ]),
-      );
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: _isReplying ? null : _send,
+              tooltip: '메이트에게 질문 보내기',
+              icon: _isReplying
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.arrow_upward_rounded),
+              style: IconButton.styleFrom(
+                  backgroundColor: AppColors.ink,
+                  foregroundColor: Colors.white),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }
 
 class ChatLine {
@@ -2825,7 +2927,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               const Text('착착에 표시되는 이름과 Google 계정 정보를 관리해요.',
-                  style: TextStyle(color: Color(0xFF6A7773))),
+                  style: TextStyle(color: AppColors.muted)),
               const SizedBox(height: 18),
               TextField(
                   controller: nameController,
@@ -2858,7 +2960,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               const Text('Google 로그인 비밀번호는 Google에서 관리됩니다.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6A7773))),
+                  style: TextStyle(
+                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
               const SizedBox(height: 10),
               OutlinedButton.icon(
                   onPressed: () async {
@@ -2877,7 +2980,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Text('개인정보', style: TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               const Text('착착이 처리하는 정보와 이용 목적, 보관 및 삭제 기준을 확인할 수 있어요.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6A7773))),
+                  style: TextStyle(
+                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
               const SizedBox(height: 10),
               OutlinedButton(
                   onPressed: _showPrivacyPolicy,
@@ -2890,7 +2994,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Color(0xFFB45142), fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               const Text('계정과 옷장·일정·맞춤 설정이 모두 삭제되고 재가입 시 온보딩부터 시작합니다.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6A7773))),
+                  style: TextStyle(
+                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
               const SizedBox(height: 10),
               OutlinedButton.icon(
                   onPressed: () {
@@ -3024,7 +3129,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 5),
                       const Text('핏과 색상 추천에만 사용하며 다른 사용자에게 공개하지 않아요.',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF6A7773))),
+                              fontSize: AppA11y.captionSize,
+                              color: AppColors.muted)),
                       const SizedBox(height: 18),
                       Row(children: [
                         Expanded(
@@ -3126,7 +3232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 21, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     const Text('오늘의 날씨를 확인할 지역을 선택하세요.',
-                        style: TextStyle(color: Color(0xFF6A7773))),
+                        style: TextStyle(color: AppColors.muted)),
                     const SizedBox(height: 15),
                     OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).pop('내 위치'),
@@ -3179,7 +3285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 21, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     const Text('여러 개를 선택할 수 있어요.',
-                        style: TextStyle(color: Color(0xFF6A7773))),
+                        style: TextStyle(color: AppColors.muted)),
                     const SizedBox(height: 17),
                     Wrap(
                         spacing: 8,
@@ -3367,7 +3473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         SizedBox(height: 3),
                         Text('핏과 색상 추천에만 사용해요.',
                             style: TextStyle(
-                                fontSize: 11, color: Color(0xFF75807C)))
+                                fontSize: AppA11y.captionSize,
+                                color: AppColors.muted))
                       ])),
                   TextButton(
                       onPressed: _editBodyProfile, child: const Text('수정'))
@@ -3439,7 +3546,8 @@ class _BodyStat extends StatelessWidget {
           color: AppColors.mist, borderRadius: BorderRadius.circular(13)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF75807C))),
+            style: const TextStyle(
+                fontSize: AppA11y.captionSize, color: AppColors.muted)),
         const SizedBox(height: 4),
         Row(children: [
           if (color != null) ...[
@@ -3494,8 +3602,8 @@ class _SettingRow extends StatelessWidget {
               child: Text(value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF77817E)))),
+                  style: const TextStyle(
+                      fontSize: AppA11y.captionSize, color: AppColors.muted))),
         const SizedBox(width: 4),
         const Icon(Icons.chevron_right, color: Color(0xFF8A9390))
       ]));
@@ -3609,8 +3717,9 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                               fontSize: 21, fontWeight: FontWeight.w800)),
                       SizedBox(height: 4),
                       Text('시간과 활동을 보고 코디를 추천해요.',
-                          style:
-                              TextStyle(fontSize: 12, color: Color(0xFF6A7773)))
+                          style: TextStyle(
+                              fontSize: AppA11y.captionSize,
+                              color: AppColors.muted))
                     ])),
                 TextButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -3628,7 +3737,8 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                         padding: EdgeInsets.all(16),
                         child: Text('아직 등록된 일정이 없어요.',
                             style: TextStyle(
-                                fontSize: 12, color: Color(0xFF77817E))))
+                                fontSize: AppA11y.captionSize,
+                                color: AppColors.muted)))
                     : Column(children: [
                         for (final item in schedules)
                           ListTile(
@@ -3657,7 +3767,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF65716D))),
+                      color: AppColors.muted)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -3805,7 +3915,8 @@ class _DiscoveryCard extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(subtitle,
                                 style: const TextStyle(
-                                    fontSize: 11, color: Color(0xFF535C59)))
+                                    fontSize: AppA11y.captionSize,
+                                    color: Color(0xFF535C59)))
                           ]))),
             ]),
           ),
@@ -3871,10 +3982,9 @@ class SectionTitle extends StatelessWidget {
             onPressed: onTap,
             child: Row(children: [
               Text(trailing,
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF687571))),
-              const Icon(Icons.chevron_right,
-                  size: 16, color: Color(0xFF687571))
+                  style: const TextStyle(
+                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.muted)
             ]))
       ]);
 }
@@ -3906,7 +4016,9 @@ class _Pill extends StatelessWidget {
           BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
           style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w800, color: foreground)));
+              fontSize: AppA11y.captionSize,
+              fontWeight: FontWeight.w800,
+              color: foreground)));
 }
 
 class GoogleMark extends StatelessWidget {
@@ -3955,31 +4067,43 @@ class _ConsentRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final VoidCallback onOpen;
   @override
-  Widget build(BuildContext context) => Row(children: [
-        SizedBox(
-            width: 32,
-            height: 32,
-            child: Checkbox(
-                value: value,
-                onChanged: (next) => onChanged(next ?? false),
-                activeColor: AppColors.mintDark)),
-        const Text('[필수] ',
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppColors.mintDark)),
-        TextButton(
-            onPressed: onOpen,
-            style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 11, decoration: TextDecoration.underline))),
-        const Text('에 동의합니다.',
-            style: TextStyle(fontSize: 11, color: Color(0xFF68736F))),
-      ]);
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox.square(
+              dimension: AppA11y.touchTarget,
+              child: Checkbox(
+                  value: value,
+                  onChanged: (next) => onChanged(next ?? false),
+                  activeColor: AppColors.mintDark)),
+          Expanded(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('[필수] ',
+                    style: TextStyle(
+                        fontSize: AppA11y.metadataSize,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.mintDark)),
+                TextButton(
+                    onPressed: onOpen,
+                    style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: const Size(
+                            AppA11y.touchTarget, AppA11y.touchTarget)),
+                    child: Text(label,
+                        style: const TextStyle(
+                            fontSize: AppA11y.metadataSize,
+                            decoration: TextDecoration.underline))),
+                const Text('에 동의합니다.',
+                    style: TextStyle(
+                        fontSize: AppA11y.metadataSize,
+                        color: AppColors.muted)),
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 enum MateMood { sunny, thinking, excited }
