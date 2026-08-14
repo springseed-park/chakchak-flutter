@@ -1,0 +1,38 @@
+name: chakchak
+description: CHAKCHAK is a weather and schedule-aware wardrobe assistant built with Flutter.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.0.10+1
+  image_picker: ^1.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/characters/
+    - assets/garments/
+    - assets/icons/
+  fonts:
+    - family: Paperlogy
+      fonts:
+        - asset: assets/fonts/Paperlogy-4Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Paperlogy-5Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Paperlogy-6SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Paperlogy-7Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Paperlogy-8ExtraBold.ttf
+          weight: 800
