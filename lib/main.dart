@@ -270,32 +270,38 @@ class _AppFlowState extends State<AppFlow> {
 
   @override
   Widget build(BuildContext context) {
+    late final Widget screen;
+    late final String screenKey;
     if (_isRestoringSession) {
-      return const Scaffold(
+      screenKey = 'restoring';
+      screen = const Scaffold(
         backgroundColor: AppColors.paper,
         body: Center(child: CircularProgressIndicator()),
       );
+    } else {
+      screenKey = _stage.name;
+      screen = switch (_stage) {
+        AppStage.landing => LandingScreen(
+            auth: _auth,
+            onSignedIn: _signedIn,
+          ),
+        AppStage.onboarding => OnboardingScreen(onDone: (garment) {
+            final userId = _auth.currentUserId;
+            if (userId != null) {
+              unawaited(_profileStore?.markOnboardingCompleted(userId));
+            }
+            setState(() {
+              _onboardingGarment = garment;
+              _stage = AppStage.home;
+            });
+          }),
+        AppStage.home => MainShell(
+            initialGarment: _onboardingGarment,
+            onLogout: _logout,
+            onDeleteAccount: _deleteAccount),
+      };
     }
-    return switch (_stage) {
-      AppStage.landing => LandingScreen(
-          auth: _auth,
-          onSignedIn: _signedIn,
-        ),
-      AppStage.onboarding => OnboardingScreen(onDone: (garment) {
-          final userId = _auth.currentUserId;
-          if (userId != null) {
-            unawaited(_profileStore?.markOnboardingCompleted(userId));
-          }
-          setState(() {
-            _onboardingGarment = garment;
-            _stage = AppStage.home;
-          });
-        }),
-      AppStage.home => MainShell(
-          initialGarment: _onboardingGarment,
-          onLogout: _logout,
-          onDeleteAccount: _deleteAccount),
-    };
+    return _ResponsivePortfolioShell(screenKey: screenKey, child: screen);
   }
 }
 
@@ -449,48 +455,63 @@ class _LandingScreenState extends State<LandingScreen> {
       );
 
   @override
-  Widget build(BuildContext context) {
-    final landing = _LandingCanvas(
-      characterAsset: _characterAsset,
-      isSigningIn: _isSigningIn,
-      onSignIn: _signIn,
-    );
-    return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth < 980) return landing;
-      final phoneScale = min(1.0, max(.7, (constraints.maxHeight - 64) / 830));
-      return Scaffold(
-        backgroundColor: const Color(0xFFF0F3F1),
-        body: Center(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 32),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  key: const ValueKey('portfolio-phone-frame'),
-                  width: 410 * phoneScale,
-                  height: 830 * phoneScale,
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: _PortfolioPhoneFrame(
-                      child: Navigator(
-                        onGenerateRoute: (_) => MaterialPageRoute<void>(
-                          builder: (_) => landing,
+  Widget build(BuildContext context) => _LandingCanvas(
+        characterAsset: _characterAsset,
+        isSigningIn: _isSigningIn,
+        onSignIn: _signIn,
+      );
+}
+
+class _ResponsivePortfolioShell extends StatelessWidget {
+  const _ResponsivePortfolioShell({
+    required this.screenKey,
+    required this.child,
+  });
+
+  final String screenKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 980) return child;
+          final phoneScale =
+              min(1.0, max(.7, (constraints.maxHeight - 64) / 830));
+          return Scaffold(
+            backgroundColor: const Color(0xFFF0F3F1),
+            body: Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 56, vertical: 32),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      key: const ValueKey('portfolio-phone-frame'),
+                      width: 410 * phoneScale,
+                      height: 830 * phoneScale,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: _PortfolioPhoneFrame(
+                          child: Navigator(
+                            key: ValueKey('portfolio-navigator-$screenKey'),
+                            onGenerateRoute: (_) => MaterialPageRoute<void>(
+                              builder: (_) => child,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 72),
+                    const _PortfolioIntro(),
+                  ],
                 ),
-                const SizedBox(width: 72),
-                const _PortfolioIntro(),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       );
-    });
-  }
 }
 
 class _LandingCanvas extends StatelessWidget {

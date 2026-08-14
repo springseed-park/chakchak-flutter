@@ -63,6 +63,16 @@ void main() {
     final sheetRect = tester.getRect(find.byType(BottomSheet));
     expect(sheetRect.left, greaterThanOrEqualTo(phoneRect.left));
     expect(sheetRect.right, lessThanOrEqualTo(phoneRect.right));
+
+    await tester.tap(find.byType(Checkbox).at(0));
+    await tester.tap(find.byType(Checkbox).at(1));
+    await tester.pump();
+    await tester.tap(find.text('동의하고 가입하기'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('오늘의 날씨는\n어디를 기준으로 볼까요?'), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-phone-frame')), findsOneWidget);
   });
 }
 
