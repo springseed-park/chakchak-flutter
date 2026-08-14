@@ -2603,8 +2603,10 @@ class _MateChatScreenState extends State<MateChatScreen> {
   final textController = TextEditingController();
   late List<ChatLine> lines;
   late List<GarmentItem> selectedGarments;
-  final BackendService _backend = BackendService();
+  BackendService? _backend;
   bool _isReplying = false;
+
+  BackendService get _mateBackend => _backend ??= BackendService();
 
   @override
   void initState() {
@@ -2633,7 +2635,7 @@ class _MateChatScreenState extends State<MateChatScreen> {
     });
     try {
       final wardrobe = widget.garments ?? sampleGarments;
-      final response = await _backend.recommendOutfit(
+      final response = await _mateBackend.recommendOutfit(
         message: message,
         wardrobe: wardrobe
             .map((item) => {
@@ -3616,9 +3618,10 @@ class _SettingGroup extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 9),
-        Container(
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
             child: Column(children: children))
       ]);
 }

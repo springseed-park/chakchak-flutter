@@ -74,6 +74,25 @@ void main() {
     expect(find.text('오늘의 날씨는\n어디를 기준으로 볼까요?'), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-phone-frame')), findsOneWidget);
   });
+
+  testWidgets('로그인 후 메인 화면이 휴대폰 크기에서 표시된다', (tester) async {
+    tester.view.physicalSize = const Size(410, 830);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: MainShell(
+        onLogout: () async {},
+        onDeleteAccount: () async {},
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('서울 성동구'), findsOneWidget);
+    expect(find.text('오늘의 추천'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _ControlledAuth implements AppAuth {

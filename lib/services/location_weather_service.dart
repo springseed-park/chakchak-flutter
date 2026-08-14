@@ -11,11 +11,13 @@ class LocatedWeather {
 }
 
 class LocationWeatherService {
-  LocationWeatherService({BackendService? backend})
-      : _backend = backend ?? BackendService();
+  LocationWeatherService({BackendService? backend}) : _backend = backend;
 
-  final BackendService _backend;
-  final Geocoding _geocoding = Geocoding();
+  BackendService? _backend;
+  Geocoding? _geocoding;
+
+  BackendService get _weatherBackend => _backend ??= BackendService();
+  Geocoding get _reverseGeocoder => _geocoding ??= Geocoding();
 
   Future<LocatedWeather> loadCurrentWeather() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -35,13 +37,13 @@ class LocationWeatherService {
         timeLimit: Duration(seconds: 12),
       ),
     );
-    final weather = await _backend.getWeather(
+    final weather = await _weatherBackend.getWeather(
       latitude: position.latitude,
       longitude: position.longitude,
     );
     var label = '현재 위치';
     try {
-      final placemarks = await _geocoding.placemarkFromCoordinates(
+      final placemarks = await _reverseGeocoder.placemarkFromCoordinates(
           position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
