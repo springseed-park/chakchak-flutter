@@ -100,3 +100,21 @@ class PreviewAppAuth implements AppAuth {
   @override
   Future<void> deleteCurrentUser() async => _userId = null;
 }
+
+/// Firebase를 사용할 수 없는 실행 환경에서 가짜 로그인을 진행하지 않도록 막습니다.
+class UnavailableAppAuth implements AppAuth {
+  const UnavailableAppAuth();
+
+  @override
+  String? get currentUserId => null;
+
+  @override
+  Future<AppSignInResult> signInWithGoogle() =>
+      Future.error(StateError('Firebase 로그인을 준비하지 못했어요. 잠시 후 페이지를 새로고침해주세요.'));
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteCurrentUser() async {}
+}

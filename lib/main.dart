@@ -212,7 +212,9 @@ class _AppFlowState extends State<AppFlow> {
   void initState() {
     super.initState();
     _auth = widget.auth ??
-        (Firebase.apps.isEmpty ? PreviewAppAuth() : FirebaseAppAuth());
+        (Firebase.apps.isEmpty
+            ? const UnavailableAppAuth()
+            : FirebaseAppAuth());
     if (Firebase.apps.isNotEmpty) {
       _profileStore = UserProfileStore();
       _backend = BackendService();
@@ -323,13 +325,13 @@ class _LandingScreenState extends State<LandingScreen> {
         landingCharacterAssets[Random().nextInt(landingCharacterAssets.length)];
   }
 
-  Future<void> _signIn() async {
+  Future<void> _signIn(BuildContext presentationContext) async {
     setState(() => _isSigningIn = true);
     try {
       final result = await widget.auth.signInWithGoogle();
       if (!mounted) return;
       if (result.isNewUser) {
-        final accepted = await _requestSignupConsent();
+        final accepted = await _requestSignupConsent(presentationContext);
         if (!accepted || !mounted) {
           await widget.auth.deleteCurrentUser();
           return;
@@ -346,18 +348,19 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
-  Future<bool> _requestSignupConsent() async {
+  Future<bool> _requestSignupConsent(BuildContext presentationContext) async {
     var terms = false;
     var privacy = false;
     return await showModalBottomSheet<bool>(
-          context: context,
+          context: presentationContext,
           isDismissible: false,
           enableDrag: false,
+          isScrollControlled: true,
           showDragHandle: true,
           backgroundColor: AppColors.paper,
           builder: (sheetContext) => StatefulBuilder(
               builder: (sheetContext, setSheetState) => SafeArea(
-                      child: Padding(
+                      child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
                     child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -376,6 +379,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               onChanged: (value) =>
                                   setSheetState(() => terms = value),
                               onOpen: () => _showPolicy(
+                                  presentationContext: sheetContext,
                                   title: '서비스 이용약관',
                                   content:
                                       '착착은 사용자가 등록한 옷, 날씨와 일정 정보를 활용해 코디를 추천합니다. Google 계정으로 가입하며 등록 정보는 코디 추천 제공을 위해 처리됩니다.')),
@@ -385,6 +389,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               onChanged: (value) =>
                                   setSheetState(() => privacy = value),
                               onOpen: () => _showPolicy(
+                                  presentationContext: sheetContext,
                                   title: '개인정보 처리방침',
                                   content:
                                       'Google 계정의 이름·이메일·프로필 사진과 사용자가 입력한 옷장·일정·선호 정보를 로그인과 개인화 추천 목적으로 처리합니다. 회원 탈퇴 시 착착 데이터를 삭제합니다.')),
@@ -410,13 +415,17 @@ class _LandingScreenState extends State<LandingScreen> {
         false;
   }
 
-  Future<void> _showPolicy({required String title, required String content}) =>
+  Future<void> _showPolicy(
+          {required BuildContext presentationContext,
+          required String title,
+          required String content}) =>
       showModalBottomSheet<void>(
-        context: context,
+        context: presentationContext,
+        isScrollControlled: true,
         showDragHandle: true,
         backgroundColor: AppColors.paper,
         builder: (context) => SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
           child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -459,11 +468,18 @@ class _LandingScreenState extends State<LandingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
+                  key: const ValueKey('portfolio-phone-frame'),
                   width: 410 * phoneScale,
                   height: 830 * phoneScale,
                   child: FittedBox(
                     fit: BoxFit.contain,
-                    child: _PortfolioPhoneFrame(child: landing),
+                    child: _PortfolioPhoneFrame(
+                      child: Navigator(
+                        onGenerateRoute: (_) => MaterialPageRoute<void>(
+                          builder: (_) => landing,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 72),
@@ -485,7 +501,7 @@ class _LandingCanvas extends StatelessWidget {
 
   final String characterAsset;
   final bool isSigningIn;
-  final VoidCallback onSignIn;
+  final ValueChanged<BuildContext> onSignIn;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -587,8 +603,9 @@ class _LandingCanvas extends StatelessWidget {
                                         const LandingPreview(),
                                         const SizedBox(height: 18),
                                         FilledButton.icon(
-                                          onPressed:
-                                              isSigningIn ? null : onSignIn,
+                                          onPressed: isSigningIn
+                                              ? null
+                                              : () => onSignIn(context),
                                           icon: isSigningIn
                                               ? const SizedBox.square(
                                                   dimension: 18,
