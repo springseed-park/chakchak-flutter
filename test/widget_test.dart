@@ -90,7 +90,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('서울 성동구'), findsOneWidget);
-    expect(find.text('오늘의 추천'), findsOneWidget);
+    expect(find.text("TODAY'S PICK"), findsOneWidget);
+    expect(find.text('메인'), findsOneWidget);
+    final heroRect =
+        tester.getRect(find.byKey(const ValueKey('home-weather-hero')));
+    expect(heroRect.left, 0);
+    expect(heroRect.right, 410);
+    expect(heroRect.top, 0);
     expect(tester.takeException(), isNull);
   });
 }

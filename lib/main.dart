@@ -476,7 +476,7 @@ class _ResponsivePortfolioShell extends StatelessWidget {
         builder: (context, constraints) {
           if (constraints.maxWidth < 980) return child;
           final phoneScale =
-              min(1.0, max(.7, (constraints.maxHeight - 64) / 830));
+              min(1.0, max(.7, (constraints.maxHeight - 64) / 844));
           return Scaffold(
             backgroundColor: const Color(0xFFF0F3F1),
             body: Center(
@@ -489,8 +489,8 @@ class _ResponsivePortfolioShell extends StatelessWidget {
                   children: [
                     SizedBox(
                       key: const ValueKey('portfolio-phone-frame'),
-                      width: 410 * phoneScale,
-                      height: 830 * phoneScale,
+                      width: 390 * phoneScale,
+                      height: 844 * phoneScale,
                       child: FittedBox(
                         fit: BoxFit.contain,
                         child: _PortfolioPhoneFrame(
@@ -724,18 +724,18 @@ class _PortfolioPhoneFrame extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => Container(
-        width: 410,
-        height: 830,
-        padding: const EdgeInsets.all(10),
+        width: 390,
+        height: 844,
+        padding: const EdgeInsets.all(9),
         decoration: BoxDecoration(
           color: AppColors.ink,
-          borderRadius: BorderRadius.circular(48),
+          borderRadius: BorderRadius.circular(46),
           boxShadow: const [
             BoxShadow(
                 color: Color(0x2B1B2A26), blurRadius: 32, offset: Offset(0, 18))
           ],
         ),
-        child: ClipRRect(borderRadius: BorderRadius.circular(39), child: child),
+        child: ClipRRect(borderRadius: BorderRadius.circular(37), child: child),
       );
 }
 
@@ -1240,51 +1240,98 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: ColoredBox(
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 39),
-            child: NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (value) => setState(() => index = value),
-              height: 66,
-              backgroundColor: Colors.white,
-              indicatorColor: AppColors.mint,
-              labelTextStyle: MaterialStateProperty.resolveWith((states) =>
-                  TextStyle(
-                      color: states.contains(MaterialState.selected)
-                          ? Colors.white
-                          : const Color(0xFF8A9591),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
-              destinations: const [
-                NavigationDestination(
-                    icon: _NavSvgIcon('assets/icons/nav-home.svg'),
-                    selectedIcon: _NavSvgIcon('assets/icons/nav-home.svg',
-                        selected: true),
-                    label: '오늘'),
-                NavigationDestination(
-                    icon: _NavSvgIcon('assets/icons/nav-wardrobe.svg'),
-                    selectedIcon: _NavSvgIcon('assets/icons/nav-wardrobe.svg',
-                        selected: true),
-                    label: '내 옷장'),
-                NavigationDestination(
-                    icon: _NavSvgIcon('assets/icons/nav-mate.svg'),
-                    selectedIcon: _NavSvgIcon('assets/icons/nav-mate.svg',
-                        selected: true),
-                    label: '메이트'),
-                NavigationDestination(
-                    icon: _NavSvgIcon('assets/icons/nav-my.svg'),
-                    selectedIcon:
-                        _NavSvgIcon('assets/icons/nav-my.svg', selected: true),
-                    label: '마이'),
-              ],
-            ),
+        child: Container(
+          height: 66,
+          padding: const EdgeInsets.fromLTRB(39, 5, 39, 7),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFFCFB),
+            border: Border(top: BorderSide(color: AppColors.line)),
+            boxShadow: [
+              BoxShadow(
+                  color: Color(0x1016251E),
+                  blurRadius: 24,
+                  offset: Offset(0, -8))
+            ],
           ),
+          child: Row(children: [
+            _BottomNavItem(
+                label: '메인',
+                asset: 'assets/icons/nav-home.svg',
+                selected: index == 0,
+                onTap: () => setState(() => index = 0)),
+            _BottomNavItem(
+                label: '내 옷장',
+                asset: 'assets/icons/nav-wardrobe.svg',
+                selected: index == 1,
+                onTap: () => setState(() => index = 1)),
+            _BottomNavItem(
+                label: '메이트',
+                asset: 'assets/icons/nav-mate.svg',
+                selected: index == 2,
+                onTap: () => setState(() => index = 2)),
+            _BottomNavItem(
+                label: '마이',
+                asset: 'assets/icons/nav-my.svg',
+                selected: index == 3,
+                onTap: () => setState(() => index = 3)),
+          ]),
         ),
       ),
     );
   }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({
+    required this.label,
+    required this.asset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String asset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppRadius.control),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 60,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.mint : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _NavSvgIcon(asset, selected: selected),
+                    const SizedBox(height: 2),
+                    Text(label,
+                        maxLines: 1,
+                        style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : const Color(0xFF8A9591),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _NavSvgIcon extends StatelessWidget {
@@ -1375,47 +1422,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-              sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                WeatherHero(
-                  schedules: schedules,
-                  weather: _weather,
-                  locationLabel: _locationLabel,
-                  loading: _weatherLoading,
-                  onRefresh: _refreshWeather,
-                ),
-                const SizedBox(height: 15),
-                _ScheduleCard(
-                    schedules: schedules,
-                    onAdd: _editSchedules,
-                    onDelete: _deleteSchedule),
-                const SizedBox(height: 20),
-                OutfitCard(
-                    saved: widget.saved,
-                    onSave: widget.onSave,
-                    onAskMate: widget.onAskMate,
-                    scheduleContext: schedules
-                        .map((item) => '${item.time} ${item.title}')
-                        .join(', ')),
-                const SizedBox(height: 28),
-                SectionTitle(
-                    title: '착착의 발견',
-                    trailing: '더보기',
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => DiscoveryScreen(
-                            garments: widget.garments,
-                            onWearOutfit: () => Navigator.of(context).pop())))),
-                const SizedBox(height: 12),
-                ReDiscoveryRow(garments: widget.garments),
-              ])),
+  Widget build(BuildContext context) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: WeatherHero(
+              schedules: schedules,
+              weather: _weather,
+              locationLabel: _locationLabel,
+              loading: _weatherLoading,
+              onRefresh: _refreshWeather,
             ),
-          ],
-        ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+            sliver: SliverList(
+                delegate: SliverChildListDelegate([
+              _ScheduleCard(
+                  schedules: schedules,
+                  onAdd: _editSchedules,
+                  onDelete: _deleteSchedule),
+              const SizedBox(height: 20),
+              OutfitCard(
+                  saved: widget.saved,
+                  onSave: widget.onSave,
+                  onAskMate: widget.onAskMate,
+                  scheduleContext: schedules
+                      .map((item) => '${item.time} ${item.title}')
+                      .join(', ')),
+              const SizedBox(height: 28),
+              SectionTitle(
+                  title: '착착의 발견',
+                  trailing: '더보기',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => DiscoveryScreen(
+                          garments: widget.garments,
+                          onWearOutfit: () => Navigator.of(context).pop())))),
+              const SizedBox(height: 12),
+              ReDiscoveryRow(garments: widget.garments),
+            ])),
+          ),
+        ],
       );
 }
 
@@ -1437,7 +1483,7 @@ class WeatherHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final heroHeight = 370.0 + max(0.0, textScale - 1.0) * 96;
+    final heroHeight = 410.0 + max(0.0, textScale - 1.0) * 112;
     final titles = schedules.map((item) => item.title).join(' ');
     var asset = 'assets/characters/chakchak-picnic.png';
     var colors = const [
@@ -1483,116 +1529,201 @@ class WeatherHero extends StatelessWidget {
     final precipitation = weather?.precipitationProbability.round() ?? 0;
     final condition = isRain ? '비' : '맑음';
     return Container(
+      key: const ValueKey('home-weather-hero'),
       height: heroHeight,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 17),
       decoration: BoxDecoration(
         gradient: LinearGradient(
             colors: colors,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
-      child: Column(children: [
-        Row(children: [
-          BrandMark(color: foreground),
-          const Spacer(),
-          IconButton(
-              onPressed: loading ? null : onRefresh,
-              tooltip: '날씨 새로고침',
-              icon: loading
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.refresh_rounded),
-              color: Colors.white,
-              style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: .16)))
-        ]),
-        const SizedBox(height: 8),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          SvgPicture.asset('assets/icons/map.svg',
-              width: 17,
-              height: 17,
-              colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn)),
-          const SizedBox(width: 5),
-          Text(locationLabel,
-              style: TextStyle(
-                  color: foreground, fontWeight: FontWeight.w700, fontSize: 13))
-        ]),
-        const SizedBox(height: 10),
-        Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 13),
-            decoration: BoxDecoration(
-                color: const Color(0xFFFFFDFA),
-                borderRadius: BorderRadius.circular(18)
-                    .copyWith(bottomLeft: const Radius.circular(5))),
-            child: Text(bubble,
-                style: const TextStyle(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35))),
-        Expanded(
-            child: Stack(clipBehavior: Clip.none, children: [
-          Positioned(
-              left: 3,
-              top: 31,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(formatKoreanDate(DateTime.now()),
-                        style: TextStyle(
-                            color: foreground.withValues(alpha: .8),
-                            fontSize: AppA11y.captionSize,
-                            fontWeight: FontWeight.w600)),
-                    Text('$temperature°',
-                        style: TextStyle(
-                            fontSize: 60,
-                            height: .95,
-                            fontWeight: FontWeight.w800,
-                            color: foreground,
-                            letterSpacing: -1)),
-                    const SizedBox(height: 5),
-                    Text('$condition · 체감 $apparentTemperature°',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: foreground,
-                            fontSize: AppA11y.captionSize))
+      clipBehavior: Clip.hardEdge,
+      child: Stack(children: [
+        Positioned(
+            right: -76,
+            top: 116,
+            child: Container(
+                width: 190,
+                height: 190,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: .12)))),
+        Positioned(
+            left: -96,
+            bottom: -64,
+            child: Container(
+                width: 154,
+                height: 154,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: .08)))),
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            child: Column(children: [
+              Row(children: [
+                Text('9:41',
+                    style: TextStyle(
+                        color: foreground,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800)),
+                const Spacer(),
+                for (var i = 0; i < 3; i++) ...[
+                  Icon(Icons.circle, size: 9, color: foreground),
+                  const SizedBox(width: 4),
+                ],
+                Icon(Icons.signal_cellular_alt_rounded,
+                    size: 13, color: foreground),
+              ]),
+              const SizedBox(height: 18),
+              Row(children: [
+                Text('착착',
+                    style: TextStyle(
+                        color: foreground,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1)),
+                const SizedBox(width: 5),
+                Text('CHAKCHAK',
+                    style: TextStyle(
+                        color: foreground,
+                        fontSize: AppA11y.captionSize,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1)),
+                const Spacer(),
+                IconButton(
+                    onPressed: loading ? null : onRefresh,
+                    tooltip: '날씨 새로고침',
+                    icon: loading
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.refresh_rounded),
+                    color: Colors.white,
+                    style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: .16),
+                        side: BorderSide(
+                            color: Colors.white.withValues(alpha: .16))))
+              ]),
+              const SizedBox(height: 5),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                SvgPicture.asset('assets/icons/map.svg',
+                    width: 17,
+                    height: 17,
+                    colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn)),
+                const SizedBox(width: 5),
+                Text(locationLabel,
+                    style: TextStyle(
+                        color: foreground,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13))
+              ]),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 17, vertical: 13),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFFFFDFA),
+                          borderRadius: BorderRadius.circular(18)
+                              .copyWith(bottomLeft: const Radius.circular(5)),
+                          boxShadow: const [
+                            BoxShadow(
+                                color: Color(0x1C18352C),
+                                blurRadius: 25,
+                                offset: Offset(0, 9))
+                          ]),
+                      child: Text(bubble,
+                          style: const TextStyle(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35))),
+                  Positioned(
+                      right: 28,
+                      bottom: -7,
+                      child: Transform.rotate(
+                          angle: pi / 4,
+                          child: const SizedBox.square(
+                              dimension: 15,
+                              child: ColoredBox(color: Color(0xFFFFFDFA)))))
+                ]),
+              ),
+              Expanded(
+                  child: Stack(clipBehavior: Clip.none, children: [
+                Positioned(
+                    left: 3,
+                    top: 25,
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(formatKoreanDate(DateTime.now()),
+                              style: TextStyle(
+                                  color: foreground.withValues(alpha: .8),
+                                  fontSize: AppA11y.captionSize,
+                                  fontWeight: FontWeight.w600)),
+                          Text('$temperature°',
+                              style: TextStyle(
+                                  fontSize: 60,
+                                  height: .95,
+                                  fontWeight: FontWeight.w800,
+                                  color: foreground,
+                                  letterSpacing: -1)),
+                          const SizedBox(height: 5),
+                          Text('$condition · 체감 $apparentTemperature°',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: foreground,
+                                  fontSize: AppA11y.captionSize))
+                        ])),
+                Positioned(
+                    right: -13,
+                    bottom: -17,
+                    child: Image.asset(asset,
+                        width: 202, height: 202, fit: BoxFit.contain)),
+              ])),
+              Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: .17))),
+                  child: Row(children: [
+                    for (final stat in [
+                      ('체감', '$apparentTemperature°'),
+                      ('강수', '$precipitation%'),
+                      ('바람', '${windSpeed}m/s'),
+                      ('습도', '$humidity%')
+                    ])
+                      Expanded(
+                          child: Column(children: [
+                        Text(stat.$1,
+                            style: TextStyle(
+                                color: foreground.withValues(alpha: .72),
+                                fontSize: AppA11y.captionSize)),
+                        const SizedBox(height: 3),
+                        Text(stat.$2,
+                            style: TextStyle(
+                                color: foreground,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13))
+                      ]))
                   ])),
-          Positioned(
-              right: -13,
-              bottom: -16,
-              child: Image.asset(asset,
-                  width: 202, height: 202, fit: BoxFit.contain)),
-        ])),
-        Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .16),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withValues(alpha: .16))),
-            child: Row(children: [
-              for (final stat in [
-                ('체감', '$apparentTemperature°'),
-                ('강수', '$precipitation%'),
-                ('바람', '${windSpeed}m/s'),
-                ('습도', '$humidity%')
-              ])
-                Expanded(
-                    child: Column(children: [
-                  Text(stat.$1,
-                      style: TextStyle(
-                          color: foreground.withValues(alpha: .72),
-                          fontSize: AppA11y.captionSize)),
-                  const SizedBox(height: 3),
-                  Text(stat.$2,
-                      style: TextStyle(
-                          color: foreground,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13))
-                ]))
-            ])),
+              const SizedBox(height: 7),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text('날씨 제공: ${weather?.sourceLabel ?? '기상청 단기예보'}',
+                    style: TextStyle(
+                        color: foreground.withValues(alpha: .62), fontSize: 9)),
+              ),
+            ]),
+          ),
+        ),
       ]),
     );
   }
@@ -1609,31 +1740,48 @@ class _ScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ordered = [...schedules]..sort((a, b) => a.time.compareTo(b.time));
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 10, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x0D23342B), blurRadius: 15, offset: Offset(0, 7))
+          ]),
       child: Column(children: [
-        Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(formatKoreanDate(DateTime.now()),
-                    style: const TextStyle(
-                        fontSize: AppA11y.captionSize, color: AppColors.muted)),
-                const SizedBox(height: 2),
-                Text(ordered.isEmpty ? '등록된 일정 없음' : '${ordered.length}개의 일정',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 15))
-              ])),
-          IconButton.filledTonal(
-              onPressed: onAdd,
-              tooltip: '일정 추가',
-              icon: const Icon(Icons.add_rounded),
-              style: IconButton.styleFrom(
-                  backgroundColor: AppColors.mint,
-                  foregroundColor: Colors.white)),
-        ]),
+        SizedBox(
+          height: 48,
+          child: Row(children: [
+            Expanded(
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(formatKoreanDate(DateTime.now()),
+                      style: const TextStyle(
+                          fontSize: AppA11y.captionSize,
+                          color: AppColors.muted)),
+                  Text(ordered.isEmpty ? '등록된 일정 없음' : '${ordered.length}개의 일정',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 15))
+                ])),
+            IconButton(
+                onPressed: onAdd,
+                tooltip: '일정 추가',
+                icon: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                        color: AppColors.mint, shape: BoxShape.circle),
+                    child: const Icon(Icons.add_rounded,
+                        size: 20, color: Colors.white)),
+                style: IconButton.styleFrom(
+                    minimumSize: const Size.square(44),
+                    maximumSize: const Size.square(44),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap)),
+          ]),
+        ),
         if (ordered.isEmpty)
           const Padding(
               padding: EdgeInsets.fromLTRB(0, 8, 0, 3),
@@ -1645,8 +1793,8 @@ class _ScheduleCard extends StatelessWidget {
                           color: AppColors.muted))))
         else
           for (final item in ordered)
-            Padding(
-              padding: EdgeInsets.zero,
+            SizedBox(
+              height: 44,
               child: Container(
                 decoration: const BoxDecoration(
                     border: Border(top: BorderSide(color: AppColors.line))),
@@ -1668,7 +1816,12 @@ class _ScheduleCard extends StatelessWidget {
                       onPressed: () => onDelete(item.id),
                       tooltip: '${item.title} 삭제',
                       icon: const Icon(Icons.close_rounded,
-                          size: 18, color: AppColors.muted)),
+                          size: 18, color: AppColors.muted),
+                      style: IconButton.styleFrom(
+                          minimumSize: const Size.square(44),
+                          maximumSize: const Size.square(44),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap)),
                 ]),
               ),
             ),
@@ -1702,7 +1855,7 @@ class OutfitCard extends StatelessWidget {
                   offset: Offset(0, 9))
             ]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const _Pill(label: '오늘의 추천', color: AppColors.mintDark),
+          const _Pill(label: "TODAY'S PICK", color: AppColors.mintDark),
           const SizedBox(height: 16),
           Row(children: [
             for (final item in sampleGarments.take(3))
