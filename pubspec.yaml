@@ -32,6 +32,7 @@ flutter:
   assets:
     - assets/characters/
     - assets/garments/
+    - assets/garment_samples/
     - assets/icons/
   fonts:
     - family: Paperlogy
@@ -45,4 +46,10 @@ flutter:
         - asset: assets/fonts/Paperlogy-7Bold.ttf
           weight: 700
         - asset: assets/fonts/Paperlogy-8ExtraBold.ttf
+          weight: 800
+    - family: NanumMyeongjo
+      fonts:
+        - asset: assets/fonts/NanumMyeongjo-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/NanumMyeongjo-ExtraBold.ttf
           weight: 800

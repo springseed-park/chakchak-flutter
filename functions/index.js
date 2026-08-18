@@ -9,12 +9,13 @@ initializeApp();
 const GROQ_API_KEY = defineSecret('GROQ_API_KEY');
 const KMA_API_KEY = defineSecret('KMA_API_KEY');
 const region = 'asia-northeast3';
-const groqModel = 'llama-3.1-8b-instant';
+const groqModel = 'openai/gpt-oss-20b';
 
 const systemPrompt = `너는 한국어로 대화하는 착착(CHAKCHAK)의 코디 메이트야.
 사용자가 가진 옷, 오늘 날씨, 일정만으로 현실적인 코디를 추천해.
 답변은 최대 2개의 짧은 문장, 70자 이내로 말해.
 옷은 wardrobe에 있는 정확한 이름만 2~3개 골라.
+사용자가 특정 옷 이름을 직접 말하면 그 옷은 반드시 selected_items에 포함하고, 나머지 옷만 그 옷과 어울리게 골라.
 - 원피스·드레스에는 하의를 함께 추천하지 마.
 - 기본 조합은 상의 1 + 하의 1 + 신발 1이야.
 - 원피스 조합은 원피스 1 + 신발 1 + 가방·액세서리·아우터 중 1개야.
@@ -66,13 +67,29 @@ function normalizeHistory(raw) {
 }
 
 function roleOf(item) {
-  const value = `${item.category} ${item.name}`;
-  if (/원피스|드레스/.test(value)) return 'dress';
-  if (/신발|로퍼|스니커즈|구두|샌들|부츠/.test(value)) return 'shoes';
-  if (/하의|팬츠|슬랙스|데님|스커트|바지/.test(value)) return 'bottom';
-  if (/아우터|재킷|자켓|코트|가디건|점퍼/.test(value)) return 'outer';
-  if (/가방|백|액세서리/.test(value)) return 'accessory';
+  const category = String(item.category || '');
+  const value = `${category} ${item.name}`;
+  if (/원피스/.test(category) || /원피스|드레스/.test(value)) return 'dress';
+  if (/신발/.test(category) || /신발|로퍼|스니커즈|구두|샌들|부츠/.test(value)) return 'shoes';
+  if (/상의/.test(category) || /셔츠|티셔츠|후드티|민소매/.test(value)) return 'top';
+  if (/아우터/.test(category) || /재킷|자켓|코트|가디건|점퍼/.test(value)) return 'outer';
+  if (/하의/.test(category) || /팬츠|슬랙스|데님|스커트|바지/.test(value)) return 'bottom';
+  if (/가방|액세서리/.test(category) || /가방|백|액세서리/.test(value)) return 'accessory';
   return 'top';
+}
+
+function normalizedItemText(value) {
+  return String(value || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+}
+
+function mentionedItemNames(message, context) {
+  const normalizedMessage = normalizedItemText(message);
+  return context.wardrobe
+      .filter((item) => {
+        const normalizedName = normalizedItemText(item.name);
+        return normalizedName.length >= 3 && normalizedMessage.includes(normalizedName);
+      })
+      .map((item) => item.name);
 }
 
 function fallbackItems(context) {
@@ -84,9 +101,15 @@ function fallbackItems(context) {
       .filter(Boolean).map((item) => item.name).slice(0, 3);
 }
 
-function validateSelectedItems(names, context) {
+function validateSelectedItems(names, context, requiredNames = []) {
   const byName = new Map(context.wardrobe.map((item) => [item.name, item]));
-  let items = [...new Set(names)].map((name) => byName.get(name)).filter(Boolean);
+  const required = [...new Set(requiredNames)].map((name) => byName.get(name)).filter(Boolean);
+  let items = [...required, ...[...new Set(names)].map((name) => byName.get(name)).filter(Boolean)];
+  items = items.filter((item, index) => items.findIndex((candidate) => candidate.name === item.name) === index);
+  for (const item of required) {
+    const role = roleOf(item);
+    items = [item, ...items.filter((candidate) => candidate.name !== item.name && roleOf(candidate) !== role)];
+  }
   if (items.some((item) => roleOf(item) === 'dress')) {
     items = items.filter((item) => roleOf(item) !== 'bottom');
   }
@@ -97,11 +120,25 @@ function validateSelectedItems(names, context) {
     hasShoes = true;
     return true;
   });
-  const roles = new Set(items.map(roleOf));
-  const complete = roles.has('dress')
-    ? roles.has('shoes')
-    : roles.has('top') && roles.has('bottom') && roles.has('shoes');
-  return complete ? items.slice(0, 3).map((item) => item.name) : fallbackItems(context);
+  const fallbackNames = fallbackItems(context);
+  const fallback = fallbackNames.map((name) => byName.get(name)).filter(Boolean);
+  const first = (role) => items.find((item) => roleOf(item) === role)
+    || fallback.find((item) => roleOf(item) === role)
+    || context.wardrobe.find((item) => roleOf(item) === role);
+  const requiredOuter = required.find((item) => roleOf(item) === 'outer');
+  const requiredExtra = required.find((item) => roleOf(item) === 'accessory');
+  const dress = first('dress');
+  const result = dress
+    ? [dress, first('shoes'), requiredExtra || requiredOuter || first('accessory') || first('outer')]
+    : requiredOuter
+      ? [requiredOuter, first('top'), first('bottom')]
+      : requiredExtra
+        ? [first('top'), first('bottom'), requiredExtra]
+        : [first('top'), first('bottom'), first('shoes')];
+  const completed = result.filter(Boolean);
+  return completed.length >= 2
+    ? completed.map((item) => item.name).slice(0, 3)
+    : fallbackNames;
 }
 
 export const recommendOutfit = onCall({
@@ -114,6 +151,7 @@ export const recommendOutfit = onCall({
   const message = safeText(request.data?.message, 500);
   if (!message) throw new HttpsError('invalid-argument', '질문을 입력해주세요.');
   const context = normalizeContext(request.data?.context);
+  const requiredItems = mentionedItemNames(message, context);
   if (!context.wardrobe.length) {
     throw new HttpsError('failed-precondition', '옷장에 옷을 먼저 등록해주세요.');
   }
@@ -132,11 +170,11 @@ export const recommendOutfit = onCall({
         messages: [
           {role: 'system', content: systemPrompt},
           ...normalizeHistory(request.data?.history),
-          {role: 'user', content: `현재 앱 정보: ${JSON.stringify(context)}\n질문: ${message}`},
+          {role: 'user', content: `현재 앱 정보: ${JSON.stringify(context)}\n사용자가 직접 지정한 옷: ${JSON.stringify(requiredItems)}\n질문: ${message}`},
         ],
         temperature: 0.65,
-        max_completion_tokens: 180,
-        response_format: {type: 'json_object'},
+        reasoning_effort: 'low',
+        max_completion_tokens: 512,
         stream: false,
       }),
       signal: controller.signal,
@@ -156,7 +194,7 @@ export const recommendOutfit = onCall({
       parsed = {answer: raw, selected_items: []};
     }
     const selectedItems = validateSelectedItems(
-        Array.isArray(parsed.selected_items) ? parsed.selected_items : [], context);
+        Array.isArray(parsed.selected_items) ? parsed.selected_items : [], context, requiredItems);
     return {
       answer: safeText(parsed.answer, 180) || '오늘 조건에 맞는 조합으로 골랐어요.',
       selectedItems,

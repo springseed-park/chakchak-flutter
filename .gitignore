@@ -61,3 +61,6 @@ node_modules/
 
 # Widget Preview related
 .widget_preview/
+
+# Generated golden-test comparison artifacts
+/test/failures/

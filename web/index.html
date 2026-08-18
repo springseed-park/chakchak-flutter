@@ -85,6 +85,16 @@
     window.addEventListener('flutter-first-frame', function () {
       document.getElementById('app-loading')?.remove();
     });
+    // Local prototypes change frequently. Remove older Flutter service workers
+    // so a normal refresh always loads the latest build without touching auth
+    // or other application storage.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        registrations.forEach(function (registration) {
+          registration.unregister();
+        });
+      });
+    }
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
