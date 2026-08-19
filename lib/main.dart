@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
+import 'design_system.dart';
 import 'services/app_auth.dart';
 import 'services/backend_service.dart';
 import 'services/google_calendar_service.dart';
@@ -41,119 +42,30 @@ class ChakchakApp extends StatelessWidget {
     return MaterialApp(
       title: '착착 CHAKCHAK',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Paperlogy',
-        visualDensity: VisualDensity.standard,
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.ink,
-          brightness: Brightness.light,
-        ),
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w800),
-          displayMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
-          headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-          headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          titleSmall: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          bodyLarge: TextStyle(fontSize: 16, height: 1.5),
-          bodyMedium: TextStyle(fontSize: 15, height: 1.5),
-          bodySmall: TextStyle(fontSize: 13, height: 1.45),
-          labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          labelMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-          labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        ),
-        iconTheme: const IconThemeData(size: AppA11y.iconSize),
-        iconButtonTheme: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            minimumSize: const Size.square(AppA11y.touchTarget),
-            iconSize: AppA11y.iconSize,
-            tapTargetSize: MaterialTapTargetSize.padded,
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, AppA11y.controlHeight),
-            textStyle:
-                const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(48, AppA11y.controlHeight),
-            textStyle:
-                const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            minimumSize: const Size(48, AppA11y.touchTarget),
-            textStyle:
-                const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          helperStyle: TextStyle(fontSize: 13, color: AppColors.muted),
-          hintStyle: TextStyle(fontSize: 14, color: AppColors.muted),
-          labelStyle: TextStyle(fontSize: 16, color: AppColors.muted),
-          floatingLabelStyle:
-              TextStyle(fontSize: 16, color: AppColors.mintDark),
-          errorStyle: TextStyle(fontSize: 13),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: AppColors.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: AppColors.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: AppColors.mintDark, width: 1.5),
-          ),
-        ),
-        chipTheme: const ChipThemeData(
-          labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        ),
-        navigationBarTheme: const NavigationBarThemeData(
-          height: 72,
-          labelTextStyle: WidgetStatePropertyAll(
-              TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-        ),
-        tooltipTheme: const TooltipThemeData(
-          textStyle: TextStyle(fontSize: 13, color: Colors.white),
-          waitDuration: Duration(milliseconds: 400),
-        ),
-      ),
+      theme: ChakchakTheme.light(),
       home: AppFlow(auth: auth),
     );
   }
 }
 
 class AppColors {
-  static const ink = Color(0xFF202A38);
-  static const paper = Color(0xFFFFFCF7);
+  static const ink = ChakchakColors.textPrimary;
+  static const paper = ChakchakColors.canvas;
   static const mist = Color(0xFFF2F5F4);
-  static const mint = Color(0xFF267968);
-  static const mintDark = Color(0xFF267968);
+  static const mint = ChakchakColors.brandPrimary;
+  static const mintDark = ChakchakColors.brandPrimary;
   static const coral = Color(0xFFFF9775);
   static const sky = Color(0xFF9BC7ED);
   static const lavender = Color(0xFFCBBDEE);
   static const sand = Color(0xFFF3D393);
-  static const line = Color(0xFFE3E8E6);
-  static const muted = Color(0xFF596561);
+  static const line = ChakchakColors.borderSubtle;
+  static const muted = ChakchakColors.textDisabled;
   static const onDarkMuted = Color(0xE6FFFFFF);
 }
 
 class AppA11y {
   static const touchTarget = 48.0;
-  static const controlHeight = 52.0;
+  static const controlHeight = 48.0;
   static const iconSize = 24.0;
   static const compactIconSize = 20.0;
   static const captionSize = 12.0;
@@ -161,9 +73,11 @@ class AppA11y {
 }
 
 class AppRadius {
-  static const card = 20.0;
-  static const control = 14.0;
-  static const media = 16.0;
+  static const card = ChakchakRadii.card;
+  static const control = ChakchakRadii.control;
+  static const media = ChakchakRadii.control;
+  static const medium = ChakchakRadii.medium;
+  static const full = ChakchakRadii.full;
 }
 
 String formatKoreanDate(DateTime date) {
@@ -307,6 +221,7 @@ class _AppFlowState extends State<AppFlow> {
   AppStage _stage = AppStage.landing;
   OnboardingResult? _onboardingResult;
   bool _isRestoringSession = true;
+  bool _isDeletingAccount = false;
   late final AppAuth _auth;
   UserProfileStore? _profileStore;
   BackendService? _backend;
@@ -365,6 +280,17 @@ class _AppFlowState extends State<AppFlow> {
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
   Future<void> _signedIn(AppSignInResult result) async {
+    // Firebase가 신규 계정이라고 확인한 경우에는 Firestore의 온보딩 상태를
+    // 다시 조회할 필요가 없습니다. 중복 조회 동안 이전 화면이 노출되지 않도록
+    // 바로 첫 온보딩 단계로 전환합니다.
+    if (result.isNewUser) {
+      if (!mounted) return;
+      setState(() {
+        _onboardingResult = null;
+        _stage = AppStage.onboarding;
+      });
+      return;
+    }
     final completed =
         await (_profileStore?.hasCompletedOnboarding(result.userId) ??
             Future<bool>.value(false));
@@ -392,6 +318,9 @@ class _AppFlowState extends State<AppFlow> {
 
   Future<void> _deleteAccount() async {
     final userId = _auth.currentUserId;
+    if (mounted) {
+      setState(() => _isDeletingAccount = true);
+    }
     try {
       try {
         await _backend?.deleteMyData();
@@ -412,6 +341,7 @@ class _AppFlowState extends State<AppFlow> {
       setState(() {
         _onboardingResult = null;
         _isRestoringSession = false;
+        _isDeletingAccount = false;
         _stage = AppStage.landing;
       });
     }
@@ -421,7 +351,10 @@ class _AppFlowState extends State<AppFlow> {
   Widget build(BuildContext context) {
     late final Widget screen;
     late final String screenKey;
-    if (_isRestoringSession) {
+    if (_isDeletingAccount) {
+      screenKey = 'deleting-account';
+      screen = const _AccountDeletionProgressScreen();
+    } else if (_isRestoringSession) {
       screenKey = 'restoring';
       screen = const Scaffold(
         backgroundColor: AppColors.paper,
@@ -480,6 +413,41 @@ class _AppFlowState extends State<AppFlow> {
       };
     }
     return _ResponsivePortfolioShell(screenKey: screenKey, child: screen);
+  }
+}
+
+class _AccountDeletionProgressScreen extends StatelessWidget {
+  const _AccountDeletionProgressScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      key: ValueKey('account-deletion-progress'),
+      backgroundColor: AppColors.paper,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: ChakchakColors.brandPrimary,
+              ),
+            ),
+            SizedBox(height: 18),
+            Text('탈퇴 처리 중이에요', style: ChakchakTypography.section),
+            SizedBox(height: 8),
+            Text(
+              '계정과 착착 데이터를 안전하게 삭제하고 있어요.',
+              textAlign: TextAlign.center,
+              style: ChakchakTypography.label,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -559,11 +527,15 @@ class _LandingScreenState extends State<LandingScreen> {
     if (result == null || !_termsAccepted || !_privacyAccepted) return;
     await widget.profileStore?.markTermsAccepted(result.userId);
     if (!mounted) return;
+    // 목적 화면이 결정되기 전에 동의 모달을 닫으면 비동기 프로필 조회 동안
+    // 랜딩/홈이 잠깐 보인다. 상위 AppFlow가 온보딩 또는 홈으로 교체될 때까지
+    // 현재 화면을 유지해 중간 화면 노출을 막습니다.
+    await widget.onSignedIn(result);
+    if (!mounted) return;
     setState(() {
       _isConsentModalOpen = false;
       _pendingSignIn = null;
     });
-    await widget.onSignedIn(result);
   }
 
   Future<void> _cancelConsent() async {
@@ -593,9 +565,7 @@ class _LandingScreenState extends State<LandingScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 21, fontWeight: FontWeight.w800)),
+                Text(title, style: ChakchakTypography.section),
                 const SizedBox(height: 12),
                 Text(content,
                     style: const TextStyle(
@@ -604,7 +574,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50)),
+                        minimumSize: const Size.fromHeight(48)),
                     child: const Text('확인')),
               ]),
         )),
@@ -689,7 +659,7 @@ class _SignupConsentOverlay extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 23, 20, 19),
               decoration: BoxDecoration(
                 color: AppColors.paper,
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(AppRadius.card),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -698,11 +668,7 @@ class _SignupConsentOverlay extends StatelessWidget {
                   const Center(
                     child: Text(
                       '착착 가입 약관 동의',
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
+                      style: ChakchakTypography.section,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -727,8 +693,8 @@ class _SignupConsentOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   _ExactButton(
-                    height: 52,
-                    background: AppColors.ink,
+                    height: 48,
+                    background: AppColors.mint,
                     foreground: Colors.white,
                     radius: 14,
                     enabled: terms && privacy,
@@ -737,7 +703,7 @@ class _SignupConsentOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   _ExactButton(
-                    height: 46,
+                    height: 48,
                     background: Colors.white,
                     foreground: AppColors.ink,
                     border: AppColors.line,
@@ -755,6 +721,7 @@ class _SignupConsentOverlay extends StatelessWidget {
 
 class _ExactButton extends StatelessWidget {
   const _ExactButton({
+    super.key,
     required this.height,
     required this.background,
     required this.foreground,
@@ -763,6 +730,7 @@ class _ExactButton extends StatelessWidget {
     required this.onPressed,
     this.border,
     this.enabled = true,
+    this.loading = false,
   });
 
   final double height;
@@ -773,33 +741,61 @@ class _ExactButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
   final bool enabled;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) => Semantics(
         button: true,
-        enabled: enabled,
+        enabled: enabled && !loading,
         child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          cursor: enabled && !loading
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
           child: GestureDetector(
-            onTap: enabled ? onPressed : null,
+            onTap: enabled && !loading ? onPressed : null,
             child: Container(
               width: double.infinity,
               height: height,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: enabled ? background : background.withValues(alpha: .45),
-                border: border == null ? null : Border.all(color: border!),
-                borderRadius: BorderRadius.circular(radius),
-              ),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.3333,
-                  fontWeight: FontWeight.w400,
-                  color: foreground,
+                color: enabled || loading
+                    ? background
+                    : ChakchakColors.disabledFill,
+                border: Border.all(
+                  color: enabled || loading
+                      ? (border ?? ChakchakColors.borderSubtle)
+                      : ChakchakColors.borderSubtle,
                 ),
+                borderRadius: BorderRadius.circular(ChakchakRadii.control),
               ),
+              child: loading
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: foreground,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: ChakchakTypography.bodyStrong
+                              .copyWith(color: foreground),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: ChakchakTypography.bodyStrong.copyWith(
+                        color:
+                            enabled ? foreground : ChakchakColors.disabledText,
+                      ),
+                    ),
             ),
           ),
         ),
@@ -825,15 +821,15 @@ class _ResponsivePortfolioShell extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(ChakchakSpacing.section),
                   child: Center(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
                           key: const ValueKey('portfolio-phone-frame'),
-                          width: 390,
-                          height: 844,
+                          width: 402,
+                          height: 874,
                           child: _PortfolioPhoneFrame(
                             child: Navigator(
                               key: ValueKey('portfolio-navigator-$screenKey'),
@@ -843,7 +839,7 @@ class _ResponsivePortfolioShell extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 48),
+                        const SizedBox(width: ChakchakSpacing.sectionLarge),
                         const _PortfolioIntro(),
                       ],
                     ),
@@ -945,14 +941,7 @@ class _LandingCanvas extends StatelessWidget {
                                 style: TextStyle(color: Color(0xFF24826E))),
                           ]),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'NanumMyeongjo',
-                            fontSize: 32,
-                            height: 1.27,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
-                            letterSpacing: -2.3,
-                          ),
+                          style: ChakchakTypography.hero,
                         ),
                         const SizedBox(height: 17),
                         const Text(
@@ -967,7 +956,7 @@ class _LandingCanvas extends StatelessWidget {
                         ),
                         const Spacer(),
                         const LandingPreview(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: ChakchakSpacing.md),
                         _LandingGoogleButton(
                           isSigningIn: isSigningIn,
                           onPressed: onOpenLogin,
@@ -1020,16 +1009,18 @@ class _LandingLoginOverlay extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: 20,
-              right: 20,
-              bottom: 22 - (18 * (1 - value)),
+              left: 0,
+              right: 0,
+              bottom: -24 * (1 - value),
               child: Opacity(
                 opacity: value,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                   decoration: BoxDecoration(
                     color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(ChakchakRadii.card),
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1048,15 +1039,11 @@ class _LandingLoginOverlay extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 9),
-                      const Text(
+                      Text(
                         'Google 계정으로\n안전하게 시작할게요',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 21,
-                          height: 1.3,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
+                        style:
+                            ChakchakTypography.section.copyWith(height: 1.35),
                       ),
                       const SizedBox(height: 9),
                       const Text(
@@ -1069,35 +1056,37 @@ class _LandingLoginOverlay extends StatelessWidget {
                           color: Color(0xFF6E7875),
                         ),
                       ),
+                      if (status.isNotEmpty && !isSigningIn) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          status,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: ChakchakTypography.caption.copyWith(
+                            color: const Color(0xFFB45142),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       _ExactButton(
-                        height: 55,
-                        background: AppColors.ink,
+                        key: const ValueKey('google-account-select-button'),
+                        height: 48,
+                        background: AppColors.mint,
                         foreground: Colors.white,
                         radius: 14,
                         enabled: !isSigningIn,
-                        label: 'Google 계정 선택하기',
+                        loading: isSigningIn,
+                        label: isSigningIn
+                            ? 'Google 계정 선택창을 여는 중이에요.'
+                            : 'Google 계정 선택하기',
                         onPressed: onConfirm,
-                      ),
-                      SizedBox(
-                        height: 36,
-                        child: Center(
-                          child: Text(
-                            status,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              height: 1.4,
-                              color: Color(0xFFB45142),
-                            ),
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 10),
                       _ExactButton(
-                        height: 46,
+                        key: const ValueKey('google-login-cancel-button'),
+                        height: 48,
                         background: Colors.white,
                         foreground: AppColors.ink,
                         border: AppColors.line,
@@ -1133,16 +1122,19 @@ class _LandingHeader extends StatelessWidget {
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           const Text('착착',
               style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1)),
+                  fontFamily: 'Paperlogy',
+                  fontSize: 30,
+                  height: 1,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(width: 4),
           Text('CHAKCHAK',
               key: const ValueKey('landing-english-logo'),
               style: const TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
+                  fontFamily: 'Paperlogy',
+                  fontSize: 9,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .9,
                   color: AppColors.ink)),
         ]),
       ]);
@@ -1156,53 +1148,56 @@ class _LandingGoogleButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        enabled: !isSigningIn,
-        label: isSigningIn ? 'Google 계정 연결 중...' : 'Google로 시작하기',
-        child: MouseRegion(
-          cursor:
-              isSigningIn ? SystemMouseCursors.basic : SystemMouseCursors.click,
-          child: GestureDetector(
-            key: const ValueKey('google-start-button'),
-            onTap: isSigningIn ? null : onPressed,
-            child: Container(
-              height: 55,
-              decoration: BoxDecoration(
-                color: isSigningIn ? const Color(0xBFFFFFFF) : Colors.white,
-                border: Border.all(color: AppColors.line),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1423342C),
-                    blurRadius: 18,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (isSigningIn)
-                    const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.ink,
-                      ),
-                    )
-                  else
-                    const GoogleMark(),
-                  const SizedBox(width: 8),
-                  Text(
-                    isSigningIn ? 'Google 계정 연결 중...' : 'Google로 시작하기',
-                    style: const TextStyle(
-                      fontSize: 13.3333,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.ink,
+  Widget build(BuildContext context) => SizedBox(
+        height: 48,
+        child: LayoutBuilder(
+          builder: (context, constraints) => OverflowBox(
+            minWidth: constraints.maxWidth + 8,
+            maxWidth: constraints.maxWidth + 8,
+            minHeight: 48,
+            maxHeight: 48,
+            child: Semantics(
+              button: true,
+              enabled: !isSigningIn,
+              label: isSigningIn ? 'Google 계정 연결 중...' : 'Google로 시작하기',
+              child: MouseRegion(
+                cursor: isSigningIn
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
+                child: GestureDetector(
+                  key: const ValueKey('google-start-button'),
+                  onTap: isSigningIn ? null : onPressed,
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color:
+                          isSigningIn ? const Color(0xBFFFFFFF) : Colors.white,
+                      border: Border.all(color: ChakchakColors.borderDefault),
+                      borderRadius:
+                          BorderRadius.circular(ChakchakRadii.control),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isSigningIn)
+                          const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.ink,
+                            ),
+                          )
+                        else
+                          const GoogleMark(),
+                        const SizedBox(width: 8),
+                        Text(
+                          isSigningIn ? 'Google 계정 연결 중...' : 'Google로 시작하기',
+                          style: ChakchakTypography.bodyStrong,
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1377,7 +1372,7 @@ class _LandingPreviewState extends State<LandingPreview> {
   Widget build(BuildContext context) {
     return Column(children: [
       SizedBox(
-        height: 70.5,
+        height: 76,
         child: PageView.builder(
           controller: _controller,
           physics: const NeverScrollableScrollPhysics(),
@@ -1388,44 +1383,40 @@ class _LandingPreviewState extends State<LandingPreview> {
           itemBuilder: (context, index) {
             final example = _examples[index % _examples.length];
             return Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                   color: const Color(0x99FFFFFF),
                   border: Border.all(color: const Color(0xC7FFFFFF)),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x123A5A4F),
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
-                    )
-                  ]),
+                  borderRadius: BorderRadius.circular(ChakchakRadii.control)),
               child: Row(children: [
                 SizedBox(
-                  width: 30,
-                  child: Text(
+                  width: 32,
+                  height: 32,
+                  child: Icon(
                     index % _examples.length == 0
-                        ? '☀'
+                        ? Icons.wb_sunny_outlined
                         : index % _examples.length == 1
-                            ? '☂'
-                            : '☁',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 27, color: AppColors.ink),
+                            ? Icons.umbrella_outlined
+                            : Icons.cloud_outlined,
+                    size: 32,
+                    color: ChakchakColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 11),
+                const SizedBox(width: ChakchakSpacing.iconGap),
                 Expanded(
                     child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                       Text(example.title,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 3),
+                          style: ChakchakTypography.labelStrong),
+                      const SizedBox(height: ChakchakSpacing.xs),
                       Text(example.outfit,
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF5E6C68))),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 1,
+                              color: Color(0xFF848E89))),
                     ])),
               ]),
             );
@@ -1649,8 +1640,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
                 _ExactButton(
-                  height: 55,
-                  background: AppColors.ink,
+                  height: 48,
+                  background: AppColors.mint,
                   foreground: Colors.white,
                   radius: 14,
                   label: step == 2 ? '착착 시작하기' : '다음',
@@ -1725,13 +1716,7 @@ class _OnboardingHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 30,
-          height: 1.2,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -1.5,
-          color: AppColors.ink,
-        ),
+        style: ChakchakTypography.hero,
       );
 }
 
@@ -1743,11 +1728,8 @@ class _OnboardingCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 16,
-          height: 1.5,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFF6D7774),
+        style: ChakchakTypography.bodyLight.copyWith(
+          color: ChakchakColors.textStrongSecondary,
         ),
       );
 }
@@ -1766,31 +1748,10 @@ class _OnboardingChip extends StatelessWidget {
   final bool grid;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => ChakchakRoundChip(
+        label: label,
+        selected: selected,
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: grid ? 33.5 : 35.5,
-          padding: grid
-              ? const EdgeInsets.symmetric(horizontal: 4, vertical: 8)
-              : const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.mint : Colors.white,
-            border: Border.all(
-              color: selected ? AppColors.mint : AppColors.line,
-            ),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.3333,
-              fontWeight: FontWeight.w400,
-              color: selected ? Colors.white : AppColors.ink,
-            ),
-          ),
-        ),
       );
 }
 
@@ -2062,14 +2023,14 @@ class _OnboardingGenderChoice extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          height: 42,
+          height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? AppColors.mintDark : Colors.white,
             border: Border.all(
               color: selected ? AppColors.mintDark : AppColors.line,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.card),
           ),
           child: Text(
             value,
@@ -2099,12 +2060,12 @@ class _OnboardingNumberField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 52,
+        height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.control),
         ),
         child: Row(children: [
           Expanded(
@@ -2114,7 +2075,7 @@ class _OnboardingNumberField extends StatelessWidget {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => onChanged(),
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.ink,
               ),
@@ -2448,21 +2409,17 @@ class _MainShellState extends State<MainShell> {
         top: false,
         child: Container(
           height: 66,
-          padding: const EdgeInsets.fromLTRB(39, 7, 39, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 39, vertical: 7),
           decoration: const BoxDecoration(
-            color: Color(0xFFFFFCFB),
-            border: Border(top: BorderSide(color: AppColors.line)),
-            boxShadow: [
-              BoxShadow(
-                  color: Color(0x1016251E),
-                  blurRadius: 24,
-                  offset: Offset(0, -8))
-            ],
+            color: ChakchakColors.surface,
+            border: Border(
+              top: BorderSide(color: ChakchakColors.borderSubtle),
+            ),
           ),
           child:
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             _BottomNavItem(
-                label: '메인',
+                label: '홈',
                 asset: 'assets/icons/nav-home.svg',
                 selected: index == 0,
                 onTap: () => setState(() => index = 0)),
@@ -2477,7 +2434,7 @@ class _MainShellState extends State<MainShell> {
                 selected: index == 2,
                 onTap: () => setState(() => index = 2)),
             _BottomNavItem(
-                label: '마이',
+                label: '내정보',
                 asset: 'assets/icons/nav-my.svg',
                 selected: index == 3,
                 onTap: () => setState(() => index = 3)),
@@ -2510,27 +2467,21 @@ class _BottomNavItem extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            width: 55,
-            height: 48,
-            decoration: BoxDecoration(
-              color: selected ? AppColors.mint : Colors.transparent,
-              borderRadius: BorderRadius.circular(13),
-            ),
+            width: 48,
+            height: 52,
+            alignment: Alignment.center,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Transform.translate(
-                  offset: Offset(0, selected ? -1 : 0),
-                  child: _NavSvgIcon(asset, selected: selected),
-                ),
+                _NavSvgIcon(asset, selected: selected),
                 const SizedBox(height: 2),
                 Text(label,
                     maxLines: 1,
-                    style: TextStyle(
-                        color:
-                            selected ? Colors.white : const Color(0xFF8A9591),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400)),
+                    style: ChakchakTypography.nav.copyWith(
+                      color: selected
+                          ? ChakchakColors.brandPrimary
+                          : ChakchakColors.textNavInactive,
+                    )),
               ],
             ),
           ),
@@ -2544,15 +2495,15 @@ class _NavSvgIcon extends StatelessWidget {
   final bool selected;
 
   @override
-  Widget build(BuildContext context) => Opacity(
-        opacity: selected ? 1 : .42,
-        child: SvgPicture.asset(
-          asset,
-          width: 22,
-          height: 22,
-          colorFilter: selected
-              ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
-              : null,
+  Widget build(BuildContext context) => SvgPicture.asset(
+        asset,
+        width: 32,
+        height: 32,
+        colorFilter: ColorFilter.mode(
+          selected
+              ? ChakchakColors.brandPrimary
+              : ChakchakColors.textNavInactive,
+          BlendMode.srcIn,
         ),
       );
 }
@@ -2778,7 +2729,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.paper,
       barrierColor: const Color(0x66192420),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => _WeatherRegionSheet(
         selectedRegion: _selectedRegion,
@@ -2891,13 +2842,7 @@ class _WeatherRegionSheet extends StatelessWidget {
                       children: [
                         Text(
                           '날씨 지역',
-                          style: TextStyle(
-                            color: AppColors.ink,
-                            fontSize: 24,
-                            height: 1.2,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1,
-                          ),
+                          style: ChakchakTypography.section,
                         ),
                         SizedBox(height: 6),
                         Text(
@@ -2945,12 +2890,12 @@ class _WeatherRegionSheet extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   child: Container(
                     width: double.infinity,
-                    height: 52,
+                    height: 48,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: const Color(0xFFECF8F4),
                       border: Border.all(color: const Color(0xFFAFE3D6)),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.control),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -3276,12 +3221,6 @@ class WeatherHero extends StatelessWidget {
                         topRight: Radius.circular(18),
                         bottomRight: Radius.circular(18),
                         bottomLeft: Radius.circular(5)),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Color(0x1C18352C),
-                          blurRadius: 25,
-                          offset: Offset(0, 9))
-                    ],
                   ),
                   child: Text(bubble,
                       style: const TextStyle(
@@ -3313,26 +3252,20 @@ class WeatherHero extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(formatKoreanHeroDate(DateTime.now()),
+                                maxLines: 1,
                                 style: const TextStyle(
                                     color: Color(0xD6FFFFFF),
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text('$temperature°',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 60,
-                                    height: .92,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1,
-                                    shadows: [
-                                      Shadow(
-                                          color: Color(0x3D17372F),
-                                          blurRadius: 14,
-                                          offset: Offset(0, 2))
-                                    ])),
+                                maxLines: 1,
+                                style: ChakchakTypography.weather.copyWith(
+                                  color: Colors.white,
+                                )),
                             const SizedBox(height: 7),
                             Text('$condition · 체감 $apparentTemperature°',
+                                maxLines: 1,
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -3592,7 +3525,7 @@ class OutfitCard extends StatelessWidget {
               decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: AppColors.line),
-                  borderRadius: BorderRadius.circular(13)),
+                  borderRadius: BorderRadius.circular(ChakchakRadii.control)),
               child: SvgPicture.asset('assets/icons/refresh.svg',
                   width: 19,
                   height: 19,
@@ -3611,11 +3544,12 @@ class OutfitCard extends StatelessWidget {
         dress: outfit.dress,
       ),
       const SizedBox(height: 14),
-      Text(outfit.title,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19)),
-      const SizedBox(height: 7),
+      Text(outfit.title, style: ChakchakTypography.card),
+      const SizedBox(height: ChakchakSpacing.sm),
       Text(outfit.description,
-          style: const TextStyle(color: AppColors.muted, height: 1.4)),
+          style: ChakchakTypography.bodyLight.copyWith(
+            color: ChakchakColors.textStrongSecondary,
+          )),
       const SizedBox(height: 15),
       Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -3646,7 +3580,7 @@ class OutfitCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            height: 50,
+            height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
                 color: saved ? AppColors.mintDark : Colors.white,
@@ -3659,13 +3593,14 @@ class OutfitCard extends StatelessWidget {
                   height: 20,
                   colorFilter: ColorFilter.mode(
                       saved ? Colors.white : AppColors.ink, BlendMode.srcIn)),
-              const SizedBox(width: 9),
+              const SizedBox(width: ChakchakSpacing.iconGap),
               Expanded(
                   child: Text(saved ? '오늘의 픽으로 선택했어요' : '오늘의 픽으로 선택',
                       style: TextStyle(
                           color: saved ? Colors.white : AppColors.ink,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700))),
+                          fontSize: 16,
+                          height: 1,
+                          fontWeight: FontWeight.w500))),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 width: 42,
@@ -3700,7 +3635,7 @@ class OutfitCard extends StatelessWidget {
               width: 20, height: 20),
           label: const Text('메이트에게 다른 코디 물어보기'),
           style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+              minimumSize: const Size.fromHeight(48),
               foregroundColor: AppColors.ink,
               side: const BorderSide(color: AppColors.line))),
     ]);
@@ -4146,11 +4081,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               SizedBox(
                   height: 32,
                   child: Row(children: [
-                    const Text('내 옷장',
-                        style: TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1)),
+                    const Text('내 옷장', style: ChakchakTypography.section),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -4206,12 +4137,11 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                          colors: [Color(0xFFEDF9F5), Color(0xFFFFFDF8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight),
-                      borderRadius: BorderRadius.circular(AppRadius.card),
-                      border: Border.all(color: const Color(0xFFDCE9E4))),
+                      color: ChakchakColors.brandSubtle,
+                      borderRadius:
+                          BorderRadius.circular(ChakchakRadii.control),
+                      border:
+                          Border.all(color: ChakchakColors.borderBrandSubtle)),
                   child: Row(children: [
                     SizedBox(
                         width: 28,
@@ -4241,8 +4171,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 5),
                                 decoration: BoxDecoration(
-                                    color: AppColors.ink,
-                                    borderRadius: BorderRadius.circular(99)),
+                                    color: AppColors.mint,
+                                    borderRadius: BorderRadius.circular(
+                                        ChakchakRadii.full)),
                                 child: Text('${widget.savedOutfits.length}',
                                     style: const TextStyle(
                                         color: Colors.white, fontSize: 10))),
@@ -4256,7 +4187,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               ),
               const SizedBox(height: 18),
               SizedBox(
-                height: 32,
+                height: 36,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: 6,
@@ -4275,19 +4206,23 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                     return GestureDetector(
                       onTap: () => setState(() => filter = value),
                       child: Container(
-                        height: 32,
+                        height: 36,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: ChakchakSpacing.controlHorizontal,
+                          vertical: ChakchakSpacing.sm,
+                        ),
                         decoration: BoxDecoration(
                           color: selected ? AppColors.mint : Colors.white,
                           border: Border.all(
                               color:
                                   selected ? AppColors.mint : AppColors.line),
-                          borderRadius: BorderRadius.circular(99),
+                          borderRadius:
+                              BorderRadius.circular(ChakchakRadii.card),
                         ),
                         child: Text(value,
                             style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 15,
+                                height: 1,
                                 fontWeight: FontWeight.w400,
                                 color:
                                     selected ? Colors.white : AppColors.ink)),
@@ -4332,29 +4267,26 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           child: GestureDetector(
             onTap: widget.onAdd,
             child: Container(
-              height: 42,
+              height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                  color: AppColors.ink,
-                  borderRadius: BorderRadius.circular(99),
-                  boxShadow: const [
-                    BoxShadow(
-                        color: Color(0x60172B26),
-                        blurRadius: 20,
-                        offset: Offset(0, 8))
-                  ]),
+                  color: AppColors.mint,
+                  border: Border.all(color: ChakchakColors.borderSubtle),
+                  borderRadius: BorderRadius.circular(ChakchakRadii.control)),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Text('＋',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 13.3333,
-                        fontWeight: FontWeight.w700)),
-                SizedBox(width: 7),
+                        fontSize: 16,
+                        height: 1,
+                        fontWeight: FontWeight.w500)),
+                SizedBox(width: ChakchakSpacing.iconGap),
                 Text('새 옷 등록',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700)),
+                        fontSize: 16,
+                        height: 1,
+                        fontWeight: FontWeight.w500)),
               ]),
             ),
           ),
@@ -4379,12 +4311,7 @@ class _WardrobeItem extends StatelessWidget {
           decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(
-                    color: Color(0x10243B33),
-                    blurRadius: 18,
-                    offset: Offset(0, 7))
-              ]),
+              border: Border.all(color: ChakchakColors.borderDefault)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4400,8 +4327,7 @@ class _WardrobeItem extends StatelessWidget {
               Text(item.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: ChakchakTypography.labelStrong),
               const SizedBox(height: 3),
               Text(
                 [
@@ -4409,10 +4335,10 @@ class _WardrobeItem extends StatelessWidget {
                   item.color,
                   if (item.location.isNotEmpty) item.location,
                 ].join(' · '),
-                style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF78817E),
-                    overflow: TextOverflow.ellipsis),
+                style: ChakchakTypography.caption.copyWith(
+                  color: ChakchakColors.textDisabled,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -4434,7 +4360,7 @@ Future<void> showGarmentDetailSheet(
       backgroundColor: AppColors.paper,
       barrierColor: const Color(0x66192420),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       clipBehavior: Clip.antiAlias,
       builder: (_) => FractionallySizedBox(
@@ -4633,44 +4559,24 @@ class _GarmentDetailScreenState extends State<GarmentDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 48,
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _edit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.mintDark,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('수정하기',
-                        style: TextStyle(fontWeight: FontWeight.w800)),
-                  ),
+                ChakchakButton(
+                  label: '수정하기',
+                  kind: ChakchakButtonKind.sub,
+                  onPressed: _edit,
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 48,
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      final onAskMate = widget.onAskMate;
-                      if (onAskMate != null) {
-                        Navigator.of(context).pop();
-                        onAskMate(item);
-                        return;
-                      }
-                      Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => MateChatScreen(pinned: item)));
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ink,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('이 옷으로 코디 물어보기'),
-                  ),
+                ChakchakButton(
+                  label: '이 옷으로 코디 물어보기',
+                  onPressed: () {
+                    final onAskMate = widget.onAskMate;
+                    if (onAskMate != null) {
+                      Navigator.of(context).pop();
+                      onAskMate(item);
+                      return;
+                    }
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => MateChatScreen(pinned: item)));
+                  },
                 ),
               ],
             ),
@@ -4894,7 +4800,7 @@ class _SavedOutfitsScreenState extends State<SavedOutfitsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.control),
                 border: Border.all(color: AppColors.line),
               ),
               child: Row(children: [
@@ -5570,7 +5476,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
               color: const Color(0xFFF1F7F5),
-              borderRadius: BorderRadius.circular(22)),
+              borderRadius: BorderRadius.circular(AppRadius.card)),
           child: hasVisual
               ? Stack(fit: StackFit.expand, children: [
                   Padding(
@@ -5649,13 +5555,13 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.control),
             borderSide: const BorderSide(color: AppColors.line)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.control),
             borderSide: const BorderSide(color: AppColors.line)),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.control),
             borderSide:
                 const BorderSide(color: AppColors.mintDark, width: 1.5)),
       );
@@ -5674,11 +5580,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.title,
-                            style: const TextStyle(
-                                fontSize: 27,
-                                letterSpacing: -1,
-                                fontWeight: FontWeight.w800)),
+                        Text(widget.title, style: ChakchakTypography.section),
                         const SizedBox(height: 5),
                         Text(
                             widget.initialItem == null
@@ -5782,7 +5684,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                           onTap: () => setState(() => garmentFit = value),
                           behavior: HitTestBehavior.opaque,
                           child: Container(
-                            height: 44,
+                            height: 36,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: garmentFit == value
@@ -5793,7 +5695,8 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                                     ? AppColors.mintDark
                                     : AppColors.line,
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.full),
                             ),
                             child: Text(
                               value,
@@ -5883,13 +5786,13 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                 const SizedBox(height: 9),
                 InkWell(
                   onTap: _pickPurchaseDate,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.control),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadius.control),
                       border: Border.all(color: AppColors.line),
                     ),
                     child: Row(children: [
@@ -5906,16 +5809,9 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                   ),
                 ),
                 const SizedBox(height: 26),
-                FilledButton(
+                ChakchakButton(
+                  label: widget.initialItem == null ? '옷장에 저장하기' : '수정 내용 저장하기',
                   onPressed: _save,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.ink,
-                    minimumSize: const Size.fromHeight(58),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18)),
-                  ),
-                  child: Text(
-                      widget.initialItem == null ? '옷장에 저장하기' : '수정 내용 저장하기'),
                 ),
               ],
             ),
@@ -5946,7 +5842,7 @@ class _GarmentFormLabel extends StatelessWidget {
                     fontSize: AppA11y.captionSize,
                     fontWeight: FontWeight.w500)),
         ]),
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        style: ChakchakTypography.bodyStrong,
       );
 }
 
@@ -6034,7 +5930,7 @@ class _CustomColorPickerDialogState extends State<_CustomColorPickerDialog> {
     final selected = color.toColor();
     return AlertDialog(
       backgroundColor: AppColors.paper,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title:
           const Text('색상 직접 선택', style: TextStyle(fontWeight: FontWeight.w800)),
       content: SizedBox(
@@ -6101,7 +5997,7 @@ class _CustomColorPickerDialogState extends State<_CustomColorPickerDialog> {
             child: const Text('취소')),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(selected),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.ink),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.mint),
           child: const Text('선택'),
         ),
       ],
@@ -6698,7 +6594,7 @@ class _MateChatScreenState extends State<MateChatScreen> {
                   height: 35,
                   alignment: Alignment.center,
                   decoration: const BoxDecoration(
-                      color: AppColors.ink, shape: BoxShape.circle),
+                      color: AppColors.mint, shape: BoxShape.circle),
                   child: const Text('↑',
                       style: TextStyle(color: Colors.white, fontSize: 18)),
                 ),
@@ -6717,12 +6613,7 @@ class _MateChatScreenState extends State<MateChatScreen> {
                   color: Colors.white,
                   border: Border.all(color: AppColors.line),
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                        color: Color(0x1A172B25),
-                        blurRadius: 18,
-                        offset: Offset(0, 8))
-                  ]),
+                  boxShadow: const []),
               child: Column(children: [
                 _ChatMenuAction(
                     label: '대화 초기화',
@@ -6881,21 +6772,18 @@ class MateOutfitSuggestion extends StatelessWidget {
           const SizedBox(height: 11),
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 48,
             child: FilledButton(
               key: const ValueKey('mate-use-outfit-button'),
               onPressed: onUseOutfit,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.ink,
+                backgroundColor: AppColors.mint,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(ChakchakRadii.control),
                 ),
               ),
-              child: const Text(
-                '오늘의 코디로 보기',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-              ),
+              child: const Text('오늘의 코디로 보기'),
             ),
           ),
         ],
@@ -6983,25 +6871,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              const Text('내 정보 수정',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              const Text('착착에 표시되는 이름과 Google 계정 정보를 관리해요.',
-                  style: TextStyle(color: AppColors.muted)),
-              const SizedBox(height: 18),
+              const Text('내 정보 수정', style: ChakchakTypography.section),
+              const SizedBox(height: 8),
+              Text('착착에 표시되는 이름과 Google 계정 정보를 관리해요.',
+                  style: ChakchakTypography.label.copyWith(
+                      color: ChakchakColors.textDisabled, height: 1.4)),
+              const SizedBox(height: 20),
               TextField(
                   controller: nameController,
-                  style: const TextStyle(fontSize: 14),
+                  style: ChakchakTypography.label,
                   decoration: const InputDecoration(
                       labelText: '이름', filled: true, fillColor: Colors.white)),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                   initialValue: email,
                   readOnly: true,
-                  style: const TextStyle(fontSize: 14),
+                  style: ChakchakTypography.label,
                   decoration: const InputDecoration(
                       labelText: '이메일', filled: true, fillColor: Colors.white)),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               FilledButton(
                   onPressed: () {
                     final name = nameController.text.trim();
@@ -7010,18 +6898,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.of(sheetContext).pop();
                   },
                   style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ink,
-                      minimumSize: const Size.fromHeight(52)),
+                      minimumSize: const Size.fromHeight(48)),
                   child: const Text('내 정보 저장')),
-              const Divider(height: 36),
-              const Text('로그인 및 보안',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              const Text('Google 로그인 비밀번호는 Google에서 관리됩니다.',
-                  style: TextStyle(
-                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
+              const Divider(height: 40),
+              const Text('로그인 및 보안', style: ChakchakTypography.card),
+              const SizedBox(height: 8),
+              Text('Google 로그인 비밀번호는 Google에서 관리됩니다.',
+                  style: ChakchakTypography.label.copyWith(
+                      color: ChakchakColors.textDisabled, height: 1.4)),
+              const SizedBox(height: 12),
+              OutlinedButton(
                   onPressed: () async {
                     await Clipboard.setData(const ClipboardData(
                         text: 'https://myaccount.google.com/security'));
@@ -7030,46 +6916,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SnackBar(
                               content: Text('Google 보안 설정 주소를 복사했어요.')));
                   },
-                  icon: const Icon(Icons.password_rounded),
-                  label: const Text('Google 비밀번호 변경 주소 복사'),
                   style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50))),
-              const Divider(height: 36),
-              const Text('개인정보', style: TextStyle(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              const Text('착착이 처리하는 정보와 이용 목적, 보관 및 삭제 기준을 확인할 수 있어요.',
-                  style: TextStyle(
-                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
-              const SizedBox(height: 10),
+                      minimumSize: const Size.fromHeight(48)),
+                  child: const Text('Google 비밀번호 변경 주소 복사')),
+              const Divider(height: 40),
+              const Text('개인정보', style: ChakchakTypography.card),
+              const SizedBox(height: 8),
+              Text('착착이 처리하는 정보와 이용 목적, 보관 및 삭제 기준을 확인할 수 있어요.',
+                  style: ChakchakTypography.label.copyWith(
+                      color: ChakchakColors.textDisabled, height: 1.4)),
+              const SizedBox(height: 12),
               OutlinedButton(
                   onPressed: _showPrivacyPolicy,
                   style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50)),
+                      minimumSize: const Size.fromHeight(48)),
                   child: const Text('개인정보 처리방침 보기')),
-              const Divider(height: 36),
+              const Divider(height: 40),
               const Text('회원 탈퇴',
                   style: TextStyle(
-                      color: Color(0xFFB45142), fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              const Text('계정과 옷장·일정·맞춤 설정이 모두 삭제되고 재가입 시 온보딩부터 시작합니다.',
-                  style: TextStyle(
-                      fontSize: AppA11y.captionSize, color: AppColors.muted)),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
+                      fontFamily: 'Paperlogy',
+                      fontSize: 18,
+                      height: 1,
+                      color: Color(0xFFB45142),
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text('계정과 옷장·일정·맞춤 설정이 모두 삭제되고 재가입 시 온보딩부터 시작합니다.',
+                  style: ChakchakTypography.label.copyWith(
+                      color: ChakchakColors.textDisabled, height: 1.4)),
+              const SizedBox(height: 12),
+              OutlinedButton(
                   onPressed: () {
                     Navigator.of(sheetContext).pop();
                     _deleteAccount();
                   },
-                  icon: const Icon(Icons.person_remove_outlined),
-                  label: const Text('착착 회원 탈퇴'),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFC65D4A),
-                      minimumSize: const Size.fromHeight(50))),
-              const SizedBox(height: 8),
+                      minimumSize: const Size.fromHeight(48)),
+                  child: const Text('착착 회원 탈퇴')),
+              const SizedBox(height: 12),
               OutlinedButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
                   style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50)),
+                      minimumSize: const Size.fromHeight(48)),
                   child: const Text('취소')),
             ])),
       ),
@@ -7091,7 +6979,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 14),
                     TextField(
                         controller: confirmationController,
-                        style: const TextStyle(fontSize: 14),
+                        style: ChakchakTypography.label,
                         decoration: const InputDecoration(
                             labelText: '확인 문구',
                             hintText: '탈퇴',
@@ -7131,21 +7019,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text('수집 항목', style: TextStyle(fontWeight: FontWeight.w800)),
-                SizedBox(height: 5),
+                Text('수집 항목', style: ChakchakTypography.card),
+                SizedBox(height: 8),
                 Text(
                     'Google 계정의 이름·이메일·프로필 사진과 사용자가 입력한 신체 정보·옷장·일정·선호 스타일을 처리합니다.'),
                 SizedBox(height: 16),
-                Text('이용 목적', style: TextStyle(fontWeight: FontWeight.w800)),
-                SizedBox(height: 5),
+                Text('이용 목적', style: ChakchakTypography.card),
+                SizedBox(height: 8),
                 Text('로그인, 개인화된 코디 추천과 사용자 설정 유지 목적으로 이용합니다.'),
                 SizedBox(height: 16),
-                Text('보관 및 삭제', style: TextStyle(fontWeight: FontWeight.w800)),
-                SizedBox(height: 5),
+                Text('보관 및 삭제', style: ChakchakTypography.card),
+                SizedBox(height: 8),
                 Text('로컬 데이터는 이 기기에 저장되며 회원 탈퇴 시 계정과 착착 데이터를 삭제합니다.'),
                 SizedBox(height: 16),
-                Text('외부 서비스', style: TextStyle(fontWeight: FontWeight.w800)),
-                SizedBox(height: 5),
+                Text('외부 서비스', style: ChakchakTypography.card),
+                SizedBox(height: 8),
                 Text(
                     'Google 로그인과 선택 시 Google Calendar, 날씨 확인을 위한 외부 서비스를 이용합니다.'),
               ])),
@@ -7177,20 +7065,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                       const Text('나의 신체 프로필',
-                          style: TextStyle(
-                              fontSize: 21, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 5),
-                      const Text('핏 추천에만 사용하며 다른 사용자에게 공개하지 않아요.',
-                          style: TextStyle(
-                              fontSize: AppA11y.captionSize,
-                              color: AppColors.muted)),
-                      const SizedBox(height: 18),
+                          style: ChakchakTypography.section),
+                      const SizedBox(height: 8),
+                      Text('핏 추천에만 사용하며 다른 사용자에게 공개하지 않아요.',
+                          style: ChakchakTypography.label.copyWith(
+                              color: ChakchakColors.textDisabled, height: 1.4)),
+                      const SizedBox(height: 20),
                       Row(children: [
                         Expanded(
                             child: TextField(
                                 controller: heightController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(fontSize: 14),
+                                style: ChakchakTypography.label,
                                 decoration: const InputDecoration(
                                     labelText: '키',
                                     suffixText: 'cm',
@@ -7201,7 +7087,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: TextField(
                                 controller: weightController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(fontSize: 14),
+                                style: ChakchakTypography.label,
                                 decoration: const InputDecoration(
                                     labelText: '몸무게',
                                     suffixText: 'kg',
@@ -7209,8 +7095,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     fillColor: Colors.white))),
                       ]),
                       const SizedBox(height: 17),
-                      const Text('성별',
-                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      const Text('성별', style: ChakchakTypography.bodyStrong),
                       const SizedBox(height: 8),
                       Row(children: [
                         for (final value in ['남', '여']) ...[
@@ -7248,15 +7133,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ));
                         },
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.ink,
-                            minimumSize: const Size.fromHeight(54)),
+                            minimumSize: const Size.fromHeight(48)),
                         child: const Text('저장하기'),
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50)),
+                              minimumSize: const Size.fromHeight(48)),
                           child: const Text('취소')),
                     ])),
               )),
@@ -7279,7 +7163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       barrierColor: const Color(0x66192420),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       clipBehavior: Clip.antiAlias,
       builder: (context) => _WeatherRegionSheet(selectedRegion: region),
@@ -7298,7 +7182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       barrierColor: const Color(0x66192420),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       clipBehavior: Clip.antiAlias,
       builder: (context) => StatefulBuilder(
@@ -7332,23 +7216,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 48,
                   child: FilledButton(
                     onPressed: temporary.isEmpty
                         ? null
                         : () => Navigator.of(context).pop(temporary),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ink,
+                      backgroundColor: AppColors.mint,
                       foregroundColor: Colors.white,
                       disabledBackgroundColor: const Color(0xFFD8DEDC),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text(
-                      '선택 저장',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                    child: const Text('선택 저장'),
                   ),
                 ),
               ],
@@ -7442,17 +7323,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ListView(
             padding: const EdgeInsets.fromLTRB(20, 42, 20, 120),
             children: [
-              const Text('마이페이지',
-                  style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1)),
+              const Text('마이페이지', style: ChakchakTypography.section),
               const SizedBox(height: 20),
               Container(
-                  padding: const EdgeInsets.all(18),
+                  key: const Key('profile-summary-card'),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                      color: AppColors.mint,
-                      borderRadius: BorderRadius.circular(AppRadius.card)),
+                      color: ChakchakColors.surface,
+                      border: Border.all(color: ChakchakColors.borderDefault),
+                      borderRadius: BorderRadius.circular(ChakchakRadii.card)),
                   child: Row(children: [
                     Semantics(
                         button: true,
@@ -7461,11 +7340,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : '프로필 사진 변경',
                         child: InkWell(
                             onTap: _pickProfilePhoto,
-                            borderRadius: BorderRadius.circular(30),
+                            borderRadius: BorderRadius.circular(32),
                             child: Stack(clipBehavior: Clip.none, children: [
                               CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: Colors.white,
+                                  radius: 28,
+                                  backgroundColor: ChakchakColors.brandSubtle,
                                   backgroundImage: profilePhotoBytes == null
                                       ? (widget.accountPhotoUrl?.isNotEmpty ==
                                               true
@@ -7480,58 +7359,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           displayName.isEmpty
                                               ? '착'
                                               : displayName.substring(0, 1),
-                                          style: const TextStyle(
-                                              color: AppColors.mintDark,
-                                              fontWeight: FontWeight.w800))
+                                          style: ChakchakTypography.card
+                                              .copyWith(
+                                                  color: AppColors.mintDark))
                                       : null),
-                              const Positioned(
-                                  right: -2,
-                                  bottom: -2,
-                                  child: CircleAvatar(
-                                      radius: 9,
-                                      backgroundColor: AppColors.ink,
-                                      child: Icon(Icons.add_rounded,
-                                          size: 13, color: Colors.white)))
+                              Positioned(
+                                  right: -4,
+                                  bottom: -4,
+                                  child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                          color: AppColors.mint,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: Colors.white, width: 2)),
+                                      child: const Icon(Icons.add_rounded,
+                                          size: 16, color: Colors.white)))
                             ]))),
-                    const SizedBox(width: 12),
-                    Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('$displayName님',
-                              style: const TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 3),
-                          Text(email,
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xCCFFFFFF)))
-                        ])
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$displayName님',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ChakchakTypography.card),
+                            const SizedBox(height: 8),
+                            Text(email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ChakchakTypography.label.copyWith(
+                                    color: ChakchakColors.textDisabled))
+                          ]),
+                    )
                   ])),
-              const SizedBox(height: 17),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(16),
+                key: const Key('body-profile-card'),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20)),
+                    color: ChakchakColors.surface,
+                    border: Border.all(color: ChakchakColors.borderDefault),
+                    borderRadius: BorderRadius.circular(ChakchakRadii.card)),
                 child: Column(children: [
                   Row(children: [
-                    const Expanded(
+                    Expanded(
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                          Text('나의 신체 프로필',
-                              style: TextStyle(fontWeight: FontWeight.w800)),
-                          SizedBox(height: 3),
+                          const Text('나의 신체 프로필',
+                              style: ChakchakTypography.card),
+                          const SizedBox(height: 8),
                           Text('핏 추천에만 사용해요.',
-                              style: TextStyle(
-                                  fontSize: AppA11y.captionSize,
-                                  color: AppColors.muted))
+                              style: ChakchakTypography.label
+                                  .copyWith(color: ChakchakColors.textDisabled))
                         ])),
                     TextButton(
-                        onPressed: _editBodyProfile, child: const Text('수정'))
+                        onPressed: _editBodyProfile, child: const Text('수정하기'))
                   ]),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _BodyStat(label: '키', value: '$height cm')),
                     const SizedBox(width: 8),
@@ -7542,7 +7430,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ]),
                 ]),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 30),
               _SettingGroup(title: '추천 설정', children: [
                 _SettingRow(label: '날씨 지역', value: region, onTap: _pickRegion),
                 _SettingRow(
@@ -7560,23 +7448,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onChanged: (value) =>
                         setState(() => morningNotification = value)),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 30),
               _SettingGroup(title: '계정', children: [
                 _SettingRow(label: '내 정보 수정', value: '', onTap: _editAccount),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 30),
               OutlinedButton(
                   onPressed: _resetPreferences,
                   style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
+                      minimumSize: const Size.fromHeight(48),
                       foregroundColor: const Color(0xFF66736F),
                       side: const BorderSide(color: AppColors.line)),
                   child: const Text('맞춤 설정 초기화')),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               OutlinedButton(
                   onPressed: _logout,
                   style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
+                      minimumSize: const Size.fromHeight(48),
                       foregroundColor: const Color(0xFFA85B4E),
                       side: const BorderSide(color: Color(0xFFEADFDC))),
                   child: const Text('로그아웃')),
@@ -7604,22 +7492,14 @@ class _ProfilePreferenceSheetHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 24,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
-                  ),
+                  style: ChakchakTypography.section,
                 ),
                 const SizedBox(height: 6),
                 Text(
                   description,
-                  style: const TextStyle(
-                    color: Color(0xFF6D7774),
-                    fontSize: 13,
-                    height: 1.45,
-                    fontWeight: FontWeight.w400,
+                  style: ChakchakTypography.label.copyWith(
+                    color: ChakchakColors.textDisabled,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -7658,14 +7538,16 @@ class _BodyStat extends StatelessWidget {
   final Color? color;
   @override
   Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.all(11),
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-          color: AppColors.mist, borderRadius: BorderRadius.circular(13)),
+          color: ChakchakColors.brandSubtle,
+          borderRadius: BorderRadius.circular(ChakchakRadii.control)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: const TextStyle(
-                fontSize: AppA11y.captionSize, color: AppColors.muted)),
-        const SizedBox(height: 4),
+            style: ChakchakTypography.caption
+                .copyWith(color: ChakchakColors.textDisabled)),
+        const SizedBox(height: 8),
         Row(children: [
           if (color != null) ...[
             CircleAvatar(radius: 6, backgroundColor: color),
@@ -7675,8 +7557,7 @@ class _BodyStat extends StatelessWidget {
               child: Text(value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w800)))
+                  style: ChakchakTypography.labelStrong))
         ])
       ]));
 }
@@ -7686,45 +7567,60 @@ class _SettingGroup extends StatelessWidget {
   final String title;
   final List<Widget> children;
   @override
-  Widget build(BuildContext context) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 9),
-        Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: children))
-      ]);
+  Widget build(BuildContext context) {
+    final separated = <Widget>[];
+    for (var index = 0; index < children.length; index++) {
+      if (index > 0) {
+        separated.add(
+            const Divider(height: 1, indent: 16, endIndent: 16, thickness: 1));
+      }
+      separated.add(children[index]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: ChakchakTypography.card),
+      const SizedBox(height: 12),
+      Material(
+          color: ChakchakColors.surface,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: ChakchakColors.borderDefault),
+            borderRadius: BorderRadius.circular(ChakchakRadii.card),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: separated))
+    ]);
+  }
 }
 
 class _SettingRow extends StatelessWidget {
   const _SettingRow(
-      {this.icon,
-      required this.label,
-      required this.value,
-      required this.onTap});
-  final IconData? icon;
+      {required this.label, required this.value, required this.onTap});
   final String label;
   final String value;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ListTile(
+  Widget build(BuildContext context) => InkWell(
       onTap: onTap,
-      leading: icon == null ? null : Icon(icon, color: AppColors.mintDark),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (value.isNotEmpty)
-          ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 135),
-              child: Text(value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: AppA11y.captionSize, color: AppColors.muted))),
-        const SizedBox(width: 4),
-        const Icon(Icons.chevron_right, color: Color(0xFF8A9390))
-      ]));
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(children: [
+            Expanded(child: Text(label, style: ChakchakTypography.bodyStrong)),
+            if (value.isNotEmpty)
+              ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
+                  child: Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: ChakchakTypography.label
+                          .copyWith(color: ChakchakColors.textDisabled))),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded,
+                size: 24, color: ChakchakColors.textDisabled)
+          ]),
+        ),
+      ));
 }
 
 class _ToggleSettingRow extends StatelessWidget {
@@ -7734,12 +7630,19 @@ class _ToggleSettingRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   @override
-  Widget build(BuildContext context) => SwitchListTile(
-        value: value,
-        onChanged: onChanged,
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        activeTrackColor: AppColors.mintDark,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(children: [
+            Expanded(child: Text(label, style: ChakchakTypography.bodyStrong)),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: AppColors.mintDark,
+            ),
+          ]),
+        ),
       );
 }
 
@@ -7930,12 +7833,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text('일정 관리',
-                        style: TextStyle(
-                            fontSize: 23,
-                            height: 1.2,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.6)),
+                    Text('일정 관리', style: ChakchakTypography.section),
                     SizedBox(height: 5),
                     Text('날짜를 선택해 일정을 확인하고 추가할 수 있어요.',
                         style: TextStyle(
@@ -8034,7 +7932,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                       else
                         for (final item in _selectedSchedules) ...[
                           Container(
-                            height: 54,
+                            height: 48,
                             padding: const EdgeInsets.only(left: 16, right: 7),
                             decoration: BoxDecoration(
                                 color: Colors.white,
@@ -8074,13 +7972,14 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                         OutlinedButton(
                             onPressed: _pickTime,
                             style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(82, 50),
+                                minimumSize: const Size(82, 48),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 12),
                                 foregroundColor: AppColors.ink,
                                 side: const BorderSide(color: AppColors.line),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12))),
+                                    borderRadius: BorderRadius.circular(
+                                        AppRadius.control))),
                             child: Text(_formatTime(selectedTime),
                                 style: const TextStyle(
                                     fontSize: 14,
@@ -8100,11 +7999,13 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                                     contentPadding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 12),
                                     enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(
+                                            AppRadius.control),
                                         borderSide: const BorderSide(
                                             color: AppColors.line)),
                                     focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(
+                                            AppRadius.control),
                                         borderSide: const BorderSide(
                                             color: AppColors.mintDark))))),
                         const SizedBox(width: 8),
@@ -8113,8 +8014,8 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                             tooltip: '일정 추가',
                             icon: const Icon(Icons.add_rounded),
                             style: IconButton.styleFrom(
-                                minimumSize: const Size(50, 50),
-                                backgroundColor: AppColors.ink,
+                                minimumSize: const Size(48, 48),
+                                backgroundColor: AppColors.mint,
                                 foregroundColor: Colors.white)),
                       ]),
                       const SizedBox(height: 18),
@@ -8134,7 +8035,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                               ? 'Google Calendar 불러오는 중'
                               : '${_formatDate(selectedDate)} Google Calendar 가져오기'),
                           style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(52),
+                              minimumSize: const Size.fromHeight(48),
                               foregroundColor: AppColors.ink,
                               side: const BorderSide(color: AppColors.line),
                               shape: RoundedRectangleBorder(
@@ -8147,11 +8048,11 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
             FilledButton(
                 onPressed: _saveSchedules,
                 style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    backgroundColor: AppColors.ink,
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppColors.mint,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15))),
+                        borderRadius: BorderRadius.circular(14))),
                 child: const Text('일정 저장하기',
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
@@ -8213,7 +8114,7 @@ class _DiscoveryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: color,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadius.card),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -8310,8 +8211,7 @@ class SectionTitle extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Row(children: [
-        Text(title,
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Text(title, style: ChakchakTypography.section),
         if (trailing != null) ...[
           const Spacer(),
           TextButton(
@@ -8333,10 +8233,11 @@ class BrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text('착착',
       style: TextStyle(
+          fontFamily: 'Paperlogy',
           color: color,
-          fontSize: 19,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1));
+          fontSize: 30,
+          height: 1,
+          fontWeight: FontWeight.w800));
 }
 
 class _Pill extends StatelessWidget {

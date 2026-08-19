@@ -18,8 +18,8 @@ void main() {
 
     final englishLogo =
         tester.widget<Text>(find.byKey(const ValueKey('landing-english-logo')));
-    expect(englishLogo.style?.fontSize, 8);
-    expect(englishLogo.style?.fontWeight, FontWeight.w700);
+    expect(englishLogo.style?.fontSize, 9);
+    expect(englishLogo.style?.fontWeight, FontWeight.w600);
 
     final indicator = find.byKey(const ValueKey('landing-indicator-row'));
     final googleButton = find.byKey(const ValueKey('google-start-button'));
@@ -61,10 +61,28 @@ void main() {
     await tester.tap(googleButton);
     await tester.pump();
 
+    final accountButton =
+        find.byKey(const ValueKey('google-account-select-button'));
+    final cancelButton =
+        find.byKey(const ValueKey('google-login-cancel-button'));
+    expect(
+      tester.getTopLeft(cancelButton).dy -
+          tester.getBottomLeft(accountButton).dy,
+      10,
+    );
+
     await tester.tap(find.text('Google 계정 선택하기'));
     await tester.pump();
 
     expect(auth.signInRequested, isTrue);
+    expect(find.text('Google 계정 선택창을 여는 중이에요.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: accountButton,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('착착 가입 약관 동의'), findsNothing);
 
     auth.completeSignIn();
@@ -105,7 +123,7 @@ void main() {
 
     expect(find.text('서울 성동구'), findsOneWidget);
     expect(find.text("TODAY'S PICK"), findsOneWidget);
-    expect(find.text('메인'), findsOneWidget);
+    expect(find.text('홈'), findsOneWidget);
     final heroRect =
         tester.getRect(find.byKey(const ValueKey('home-weather-hero')));
     expect(heroRect.left, 0);

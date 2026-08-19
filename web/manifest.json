@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFCF7",
-    "theme_color": "#267968",
+    "theme_color": "#007C67",
     "description": "내 옷과 오늘의 날씨·일정으로 코디를 추천하는 Flutter 앱",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

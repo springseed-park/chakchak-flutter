@@ -161,7 +161,6 @@ class FirebaseAppAuth implements AppAuth {
         await user.delete();
       }
     }
-    await signOut();
   }
 }
 
