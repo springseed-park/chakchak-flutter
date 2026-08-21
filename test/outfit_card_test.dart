@@ -12,7 +12,6 @@ void main() {
 
     var selectCount = 0;
     var saved = false;
-    var variation = 0;
     await tester.pumpWidget(MaterialApp(
       home: StatefulBuilder(
         builder: (context, setState) => Scaffold(
@@ -28,8 +27,6 @@ void main() {
                 onAskMate: () {},
                 garments: starterBasicGarments,
                 scheduleContext: '14:00 외부 미팅',
-                variationIndex: variation,
-                onRefresh: () => setState(() => variation += 1),
               ),
             ),
           ),
@@ -38,25 +35,19 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('today-outfit-carousel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('today-editorial-flatlay')), findsWidgets);
     expect(
-        find.byKey(const ValueKey('today-editorial-flatlay')), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('today-outfit-화이트 베이직 반팔티')), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('today-outfit-블랙 와이드 슬랙스')), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('today-outfit-베이지 베이직 가디건')), findsNothing);
-    expect(
-        find.byKey(const ValueKey('today-outfit-화이트 베이직 긴팔티')), findsNothing);
-    expect(find.byKey(const ValueKey('today-outfit-블랙 베이직 긴팔티')), findsNothing);
-    expect(
-        find.byKey(const ValueKey('today-outfit-블랙 클래식 로퍼')), findsOneWidget);
-    expect(find.text('오늘의 픽으로 선택'), findsOneWidget);
-    expect(find.byKey(const ValueKey('today-outfit-refresh')), findsOneWidget);
+        find.byKey(const ValueKey('today-outfit-화이트 베이직 반팔티')), findsWidgets);
+    expect(find.byKey(const ValueKey('today-outfit-블랙 와이드 슬랙스')), findsWidgets);
+    expect(find.byKey(const ValueKey('today-outfit-블랙 클래식 로퍼')), findsWidgets);
+    expect(find.text('이 코디 선택하기'), findsOneWidget);
+    expect(find.byKey(const ValueKey('today-outfit-refresh')), findsNothing);
     expect(tester.takeException(), isNull);
 
-    await tester.ensureVisible(find.text('오늘의 픽으로 선택'));
-    await tester.tap(find.text('오늘의 픽으로 선택'));
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('today-outfit-select-0')));
+    await tester.tap(find.byKey(const ValueKey('today-outfit-select-0')));
     await tester.pumpAndSettle();
     expect(selectCount, 1);
     expect(find.text('오늘의 픽으로 선택했어요'), findsOneWidget);
@@ -64,13 +55,13 @@ void main() {
     await tester.tap(find.text('오늘의 픽으로 선택했어요'));
     await tester.pumpAndSettle();
     expect(selectCount, 2);
-    expect(find.text('오늘의 픽으로 선택'), findsOneWidget);
+    expect(find.text('이 코디 선택하기'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('today-outfit-refresh')));
+    await tester.drag(find.byKey(const ValueKey('today-outfit-carousel')),
+        const Offset(-330, 0));
     await tester.pumpAndSettle();
-    expect(variation, 1);
-    expect(
-        find.byKey(const ValueKey('today-editorial-flatlay')), findsOneWidget);
+    expect(find.text('2 / 3'), findsOneWidget);
+    expect(find.byKey(const ValueKey('today-outfit-select-1')), findsOneWidget);
   });
 
   testWidgets('오늘 코디는 고정 샘플이 아니라 전달된 옷장을 사용한다', (tester) async {
@@ -119,11 +110,37 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('today-outfit-나의 파란 반팔티')), findsWidgets);
+    expect(find.byKey(const ValueKey('today-outfit-나의 데님 바지')), findsWidgets);
     expect(
-        find.byKey(const ValueKey('today-outfit-나의 파란 반팔티')), findsOneWidget);
-    expect(find.byKey(const ValueKey('today-outfit-나의 데님 바지')), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('today-outfit-나의 화이트 스니커즈')), findsOneWidget);
+        find.byKey(const ValueKey('today-outfit-나의 화이트 스니커즈')), findsWidgets);
+    expect(find.text('1 / 1'), findsOneWidget);
+  });
+
+  testWidgets('옷장이 비어 있으면 옷 등록을 안내한다', (tester) async {
+    var registerCount = 0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: OutfitCard(
+            saved: false,
+            onSave: _noop,
+            onRegisterGarment: () => registerCount += 1,
+            garments: const [],
+            scheduleContext: '',
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('today-outfit-empty')), findsOneWidget);
+    expect(find.text('아직 등록된 옷이 없어요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('today-outfit-carousel')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('today-outfit-register')));
+    expect(registerCount, 1);
   });
 
   testWidgets('22도 데이트에는 화사한 원피스 코디를 우선한다', (tester) async {
@@ -153,7 +170,7 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('today-outfit-코랄 A라인 미디 원피스')),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(find.textContaining('코랄 A라인'), findsOneWidget);
   });
@@ -182,7 +199,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final item in selected) {
-      expect(find.byKey(ValueKey('today-outfit-${item.name}')), findsOneWidget);
+      expect(find.byKey(ValueKey('today-outfit-${item.name}')), findsWidgets);
     }
     expect(find.text('메이트와 함께 고른 오늘의 코디예요.'), findsOneWidget);
     expect(tester.takeException(), isNull);

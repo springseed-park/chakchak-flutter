@@ -4,6 +4,68 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chakchak/main.dart';
 
 void main() {
+  test('민소매 크롭티 분석명은 여성 크롭 민소매 샘플로 연결된다', () {
+    final sample = garmentSampleForDetectedStyle(
+      category: '상의',
+      detailCategory: '민소매크롭티',
+      fit: '기본',
+    );
+
+    expect(sample, isNotNull);
+    expect(sample!.detailCategory, '크롭 민소매');
+    expect(
+      sample.assetPath,
+      'assets/garment_samples/female_tanktop_slim_cropped_sleeveless.png',
+    );
+  });
+
+  test('이미 저장된 슬림 민소매도 탱크탑 샘플로 복구된다', () {
+    const garment = GarmentItem(
+      name: '화이트 민소매 상의',
+      category: '상의',
+      detailCategory: '민소매',
+      fit: '슬림',
+      color: '화이트',
+      location: '',
+      tone: Color(0xFFF2EEE4),
+      registrationMethod: '착장 사진 AI 분석',
+    );
+
+    final sample = garmentSampleForDisplay(garment);
+    expect(sample, isNotNull);
+    expect(
+      sample!.assetPath,
+      'assets/garment_samples/female_tanktop_slim_cropped_sleeveless.png',
+    );
+  });
+
+  testWidgets('AI로 저장된 빈 민소매 상세 화면은 탱크탑 샘플을 표시한다', (tester) async {
+    const garment = GarmentItem(
+      name: '화이트 민소매 상의',
+      category: '상의',
+      detailCategory: '민소매',
+      fit: '슬림',
+      color: '화이트',
+      location: '',
+      tone: Color(0xFFF2EEE4),
+      tintColor: Color(0xFFF6F5F1),
+      registrationMethod: '착장 사진 AI 분석',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(home: GarmentDetailScreen(item: garment)),
+    );
+    await tester.pumpAndSettle();
+
+    final visual = tester.widget<ColorizedGarmentAsset>(
+      find.byKey(const ValueKey('garment-recovered-sample')),
+    );
+    expect(
+      visual.assetPath,
+      'assets/garment_samples/female_tanktop_slim_cropped_sleeveless.png',
+    );
+  });
+
   testWidgets('세부 분류를 바꾸면 사진이 없을 때 기본 샘플도 바뀐다', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: AddGarmentScreen()),
@@ -127,5 +189,64 @@ void main() {
     );
     final decoration = selected.decoration! as BoxDecoration;
     expect(decoration.color, AppColors.mintDark);
+  });
+
+  testWidgets('옷 상세에서 즐겨찾기를 켜고 끔 수 있다', (tester) async {
+    GarmentItem? updated;
+    const garment = GarmentItem(
+      id: 'favorite-target',
+      name: '화이트 반팔티',
+      category: '상의',
+      detailCategory: '반팔티',
+      color: '화이트',
+      location: '',
+      tone: Color(0xFFF2EEE4),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: GarmentDetailScreen(
+        item: garment,
+        onChanged: (item) => updated = item,
+      ),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('garment-favorite-toggle')));
+    await tester.pump();
+    expect(updated?.stableId, 'favorite-target');
+    expect(updated?.isFavorite, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('garment-favorite-toggle')));
+    await tester.pump();
+    expect(updated?.isFavorite, isFalse);
+  });
+
+  testWidgets('옷 상세에서 확인 후 등록된 옷을 삭제한다', (tester) async {
+    GarmentItem? deleted;
+    const garment = GarmentItem(
+      id: 'delete-target',
+      name: '블랙 반팔티',
+      category: '상의',
+      detailCategory: '반팔티',
+      color: '블랙',
+      location: '',
+      tone: Color(0xFFF2EEE4),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: GarmentDetailScreen(
+        item: garment,
+        onDelete: (item) => deleted = item,
+      ),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('garment-delete-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('이 옷을 삭제할까요?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garment-delete-confirm')));
+    await tester.pumpAndSettle();
+    expect(deleted?.stableId, 'delete-target');
   });
 }

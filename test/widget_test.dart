@@ -96,12 +96,17 @@ void main() {
     expect(sheetRect.left, greaterThanOrEqualTo(phoneRect.left));
     expect(sheetRect.right, lessThanOrEqualTo(phoneRect.right));
 
-    await tester.tap(find.byType(Checkbox).at(0));
-    await tester.tap(find.byType(Checkbox).at(1));
+    final termsRow =
+        tester.getRect(find.byKey(const ValueKey('consent-checkbox-서비스 이용약관')));
+    final privacyRow = tester
+        .getRect(find.byKey(const ValueKey('consent-checkbox-개인정보 처리방침')));
+    expect(privacyRow.top - termsRow.bottom, 4);
+
+    await tester.tap(find.byKey(const ValueKey('consent-checkbox-서비스 이용약관')));
+    await tester.tap(find.byKey(const ValueKey('consent-checkbox-개인정보 처리방침')));
     await tester.pump();
     await tester.tap(find.text('동의하고 가입하기'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('오늘의 날씨는\n어디를 기준으로 볼까요?'), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-phone-frame')), findsOneWidget);
@@ -129,6 +134,57 @@ void main() {
     expect(heroRect.left, 0);
     expect(heroRect.right, 390);
     expect(heroRect.top, 0);
+  });
+
+  testWidgets('메이트 대신 착장 기록 탭을 표시한다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: MainShell(
+        onLogout: () async {},
+        onDeleteAccount: () async {},
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('메이트'), findsNothing);
+    expect(find.text('착장 기록'), findsOneWidget);
+    await tester.tap(find.text('착장 기록'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('saved-outfit-search')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('내 옷장에서 착장 사진 등록 검토 화면을 연다', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: MainShell(
+        onLogout: () async {},
+        onDeleteAccount: () async {},
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('내 옷장'));
+    await tester.pump();
+
+    final importButton =
+        find.byKey(const ValueKey('wardrobe-outfit-photo-import'));
+    expect(importButton, findsOneWidget);
+    await tester.tap(importButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('착장 사진 등록'), findsOneWidget);
+    expect(find.text('앨범에서 사진 고르기'), findsOneWidget);
+    expect(find.text('사진 찍기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

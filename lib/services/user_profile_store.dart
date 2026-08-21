@@ -44,6 +44,12 @@ class UserProfileStore {
   Future<void> markTermsAccepted(String userId) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_consentKey(userId), true);
+    // 화면 전환은 기기 저장이 끝나는 즉시 진행하고, 최대 3초가 걸릴 수 있는
+    // Firestore 동기화는 사용자 흐름을 막지 않도록 백그라운드에서 처리합니다.
+    unawaited(_syncTermsAccepted(userId));
+  }
+
+  Future<void> _syncTermsAccepted(String userId) async {
     try {
       await _firestore.collection('users').doc(userId).set({
         'consentAccepted': true,
@@ -97,22 +103,26 @@ class UserProfileStore {
 
   Future<void> saveOnboardingPreferences({
     required String userId,
-    required int height,
-    required int weight,
+    required int? height,
+    required int? weight,
     required String gender,
     required bool useBasicWardrobe,
   }) async {
     final preferences = await SharedPreferences.getInstance();
     await Future.wait([
-      preferences.setInt(_heightKey(userId), height),
-      preferences.setInt(_weightKey(userId), weight),
+      height == null
+          ? preferences.remove(_heightKey(userId))
+          : preferences.setInt(_heightKey(userId), height),
+      weight == null
+          ? preferences.remove(_weightKey(userId))
+          : preferences.setInt(_weightKey(userId), weight),
       preferences.setString(_genderKey(userId), gender),
       preferences.setBool(_basicWardrobeKey(userId), useBasicWardrobe),
     ]);
     try {
       await _firestore.collection('users').doc(userId).set({
-        'height': height,
-        'weight': weight,
+        'height': height ?? FieldValue.delete(),
+        'weight': weight ?? FieldValue.delete(),
         'gender': gender,
         'useBasicWardrobe': useBasicWardrobe,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -131,11 +141,11 @@ class UserProfileStore {
     final localWeight = preferences.getInt(_weightKey(userId));
     final localGender = preferences.getString(_genderKey(userId));
     final localBasic = preferences.getBool(_basicWardrobeKey(userId));
-    if (localHeight != null && localWeight != null && localBasic != null) {
+    if (localBasic != null) {
       return OnboardingPreferences(
         height: localHeight,
         weight: localWeight,
-        gender: localGender == '남' ? '남' : '여',
+        gender: _normalizeGender(localGender),
         useBasicWardrobe: localBasic,
       );
     }
@@ -150,17 +160,23 @@ class UserProfileStore {
       final weight = data?['weight'];
       final gender = data?['gender'];
       final useBasicWardrobe = data?['useBasicWardrobe'];
-      if (height is int && weight is int && useBasicWardrobe is bool) {
+      if (useBasicWardrobe is bool) {
+        final parsedHeight = height is num ? height.toInt() : null;
+        final parsedWeight = weight is num ? weight.toInt() : null;
         await Future.wait([
-          preferences.setInt(_heightKey(userId), height),
-          preferences.setInt(_weightKey(userId), weight),
-          preferences.setString(_genderKey(userId), gender == '남' ? '남' : '여'),
+          parsedHeight == null
+              ? preferences.remove(_heightKey(userId))
+              : preferences.setInt(_heightKey(userId), parsedHeight),
+          parsedWeight == null
+              ? preferences.remove(_weightKey(userId))
+              : preferences.setInt(_weightKey(userId), parsedWeight),
+          preferences.setString(_genderKey(userId), _normalizeGender(gender)),
           preferences.setBool(_basicWardrobeKey(userId), useBasicWardrobe),
         ]);
         return OnboardingPreferences(
-          height: height,
-          weight: weight,
-          gender: gender == '남' ? '남' : '여',
+          height: parsedHeight,
+          weight: parsedWeight,
+          gender: _normalizeGender(gender),
           useBasicWardrobe: useBasicWardrobe,
         );
       }
@@ -180,6 +196,8 @@ class UserProfileStore {
     await preferences.remove(_weightKey(userId));
     await preferences.remove(_genderKey(userId));
     await preferences.remove(_basicWardrobeKey(userId));
+    await preferences.remove('chakchak.wardrobe.items.v1.$userId');
+    await preferences.remove('chakchak.outfits.saved.v2.$userId');
     try {
       await _firestore
           .collection('users')
@@ -202,8 +220,14 @@ class OnboardingPreferences {
     required this.useBasicWardrobe,
   });
 
-  final int height;
-  final int weight;
+  final int? height;
+  final int? weight;
   final String gender;
   final bool useBasicWardrobe;
 }
+
+String _normalizeGender(Object? value) => switch (value) {
+      '남' => '남',
+      '여' => '여',
+      _ => '선택 안 함',
+    };

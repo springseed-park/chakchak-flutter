@@ -202,7 +202,7 @@ abstract final class ChakchakTheme {
           foregroundColor: Colors.white,
           disabledBackgroundColor: ChakchakColors.disabledFill,
           disabledForegroundColor: ChakchakColors.disabledText,
-          textStyle: ChakchakTypography.bodyStrong,
+          textStyle: ChakchakTypography.labelStrong,
           shape: controlShape,
           side: const BorderSide(color: ChakchakColors.borderSubtle),
         ),
@@ -216,7 +216,7 @@ abstract final class ChakchakTheme {
           ),
           backgroundColor: ChakchakColors.surface,
           foregroundColor: ChakchakColors.textStrongSecondary,
-          textStyle: ChakchakTypography.bodyStrong,
+          textStyle: ChakchakTypography.labelStrong,
           shape: controlShape,
           side: const BorderSide(color: ChakchakColors.borderDefault),
         ),
@@ -308,14 +308,14 @@ abstract final class ChakchakTheme {
         ),
         labelStyle: TextStyle(
           fontFamily: 'Paperlogy',
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
           height: 1,
           color: ChakchakColors.textPrimary,
         ),
         secondaryLabelStyle: TextStyle(
           fontFamily: 'Paperlogy',
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
           height: 1,
           color: Colors.white,
@@ -462,7 +462,7 @@ class ChakchakButton extends StatelessWidget {
                 ],
                 Text(
                   label,
-                  style: ChakchakTypography.bodyStrong.copyWith(
+                  style: ChakchakTypography.labelStrong.copyWith(
                     color: foreground,
                   ),
                 ),
@@ -518,7 +518,7 @@ class ChakchakRoundChip extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: 'Paperlogy',
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   height: 1,
                 ).copyWith(

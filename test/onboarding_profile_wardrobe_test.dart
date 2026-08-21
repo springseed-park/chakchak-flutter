@@ -53,6 +53,7 @@ void main() {
     expect(find.text('베이직 아이템으로 채우기'), findsOneWidget);
     expect(find.text('남'), findsOneWidget);
     expect(find.text('여'), findsOneWidget);
+    expect(find.text('선택 안 함'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).at(0), '168');
     await tester.enterText(find.byType(TextField).at(1), '58');
@@ -61,7 +62,21 @@ void main() {
 
     expect(result?.height, 168);
     expect(result?.weight, 58);
-    expect(result?.gender, '여');
+    expect(result?.gender, '선택 안 함');
+    expect(result?.useBasicWardrobe, isTrue);
+  });
+
+  testWidgets('키와 몸무게를 비워도 나중에 입력하도록 온보딩을 완료한다', (tester) async {
+    OnboardingResult? result;
+    await openThirdStep(tester, (value) => result = value);
+
+    expect(find.textContaining('선택 항목이에요'), findsNothing);
+    await tester.tap(find.text('착착 시작하기'));
+    await tester.pump();
+
+    expect(result?.height, isNull);
+    expect(result?.weight, isNull);
+    expect(result?.gender, '선택 안 함');
     expect(result?.useBasicWardrobe, isTrue);
   });
 
@@ -92,5 +107,9 @@ void main() {
     await tester.pump();
 
     expect(result?.useBasicWardrobe, isFalse);
+  });
+
+  test('성별을 선택하지 않으면 공용 베이직 아이템만 채운다', () {
+    expect(starterGarmentsForGender('선택 안 함'), starterBasicGarments);
   });
 }

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +22,12 @@ import 'services/user_profile_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Flutter Inspector의 시각 디버그 옵션이 켜진 채 재실행되더라도
+  // 사용자 화면에 노란 텍스트 기준선이나 레이아웃 가이드가 남지 않게 합니다.
+  debugPaintBaselinesEnabled = false;
+  debugPaintSizeEnabled = false;
+  debugPaintPointersEnabled = false;
+  debugRepaintRainbowEnabled = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -66,6 +73,7 @@ class AppColors {
 class AppA11y {
   static const touchTarget = 48.0;
   static const controlHeight = 48.0;
+  static const inputHeight = 40.0;
   static const iconSize = 24.0;
   static const compactIconSize = 20.0;
   static const captionSize = 12.0;
@@ -96,22 +104,26 @@ class SavedOutfitRecord {
     required this.title,
     required this.description,
     required this.garmentNames,
+    this.garmentIds = const [],
   });
 
   final DateTime date;
   final String title;
   final String description;
   final List<String> garmentNames;
+  final List<String> garmentIds;
 
   Map<String, dynamic> toJson() => {
         'date': DateUtils.dateOnly(date).toIso8601String(),
         'title': title,
         'description': description,
         'garmentNames': garmentNames,
+        'garmentIds': garmentIds,
       };
 
   factory SavedOutfitRecord.fromJson(Map<String, dynamic> json) {
     final rawNames = json['garmentNames'];
+    final rawIds = json['garmentIds'];
     return SavedOutfitRecord(
       date: DateTime.parse(json['date'] as String),
       title: json['title'] as String? ?? '',
@@ -119,8 +131,37 @@ class SavedOutfitRecord {
       garmentNames: rawNames is List
           ? rawNames.whereType<String>().toList(growable: false)
           : const [],
+      garmentIds: rawIds is List
+          ? rawIds.whereType<String>().toList(growable: false)
+          : const [],
     );
   }
+}
+
+List<GarmentItem> _resolveSavedOutfitGarments(
+  SavedOutfitRecord record,
+  Iterable<GarmentItem> candidates,
+) {
+  final byId = <String, GarmentItem>{};
+  final byName = <String, GarmentItem>{};
+  for (final item in candidates) {
+    byId[item.stableId] = item;
+    byName[item.name] = item;
+  }
+  final resolved = <GarmentItem>[];
+  final seenIds = <String>{};
+  final count = max(record.garmentIds.length, record.garmentNames.length);
+  for (var index = 0; index < count; index++) {
+    GarmentItem? item;
+    if (index < record.garmentIds.length) {
+      item = byId[record.garmentIds[index]];
+    }
+    if (item == null && index < record.garmentNames.length) {
+      item = byName[record.garmentNames[index]];
+    }
+    if (item != null && seenIds.add(item.stableId)) resolved.add(item);
+  }
+  return resolved;
 }
 
 List<SavedOutfitRecord> demoLastYearOutfits([DateTime? anchorDate]) {
@@ -367,6 +408,7 @@ class _AppFlowState extends State<AppFlow> {
             auth: _auth,
             profileStore: _profileStore,
             onSignedIn: _signedIn,
+            onConsentAccepted: _startOnboardingAfterConsent,
           ),
         AppStage.onboarding => OnboardingScreen(onDone: (result) {
             final userId = _auth.currentUserId;
@@ -390,6 +432,7 @@ class _AppFlowState extends State<AppFlow> {
             });
           }),
         AppStage.home => MainShell(
+            accountUserId: _auth.currentUserId,
             initialGarments: _onboardingResult == null
                 ? null
                 : _onboardingResult!.useBasicWardrobe
@@ -413,6 +456,14 @@ class _AppFlowState extends State<AppFlow> {
       };
     }
     return _ResponsivePortfolioShell(screenKey: screenKey, child: screen);
+  }
+
+  Future<void> _startOnboardingAfterConsent(AppSignInResult result) async {
+    if (!mounted) return;
+    setState(() {
+      _onboardingResult = null;
+      _stage = AppStage.onboarding;
+    });
   }
 }
 
@@ -459,16 +510,93 @@ class LandingScreen extends StatefulWidget {
     required this.auth,
     required this.profileStore,
     required this.onSignedIn,
+    required this.onConsentAccepted,
   });
   final AppAuth auth;
   final UserProfileStore? profileStore;
   final Future<void> Function(AppSignInResult result) onSignedIn;
+  final Future<void> Function(AppSignInResult result) onConsentAccepted;
 
   @override
   State<LandingScreen> createState() => _LandingScreenState();
 }
 
 class _LandingScreenState extends State<LandingScreen> {
+  static const _termsPolicy = '''시행일: 2026년 8월 19일
+
+제1조 (목적)
+본 약관은 착착(CHAKCHAK, 이하 “서비스”)이 제공하는 옷장 관리, 날씨·일정 기반 코디 추천 및 메이트 대화 기능의 이용 조건과 회사와 회원의 권리·의무를 정하는 것을 목적으로 합니다.
+
+제2조 (회원 가입 및 계정)
+회원은 Google 계정 인증과 필수 약관 동의를 완료하면 서비스를 이용할 수 있습니다. 회원은 정확한 정보를 제공해야 하며, 계정의 관리 책임은 회원에게 있습니다. 타인의 계정을 도용하거나 부정한 방법으로 서비스를 이용해서는 안 됩니다.
+
+제3조 (서비스의 내용)
+서비스는 회원이 등록한 옷 정보, 선택한 지역의 날씨, 입력하거나 연동한 일정 및 선호 정보를 바탕으로 코디를 제안합니다. 추천 결과는 참고용이며 실제 착용 여부와 최종 선택은 회원이 결정합니다. 기능은 운영상·기술상 필요에 따라 변경될 수 있으며 중요한 변경은 서비스 내에서 안내합니다.
+
+제4조 (회원 데이터의 이용)
+회원이 등록한 의류 사진, 카테고리, 색상, 핏, 보관 위치, 일정과 선호 정보는 옷장 관리와 개인화 추천 제공에 사용됩니다. 회원은 본인이 적법하게 사용할 수 있는 자료만 등록해야 합니다.
+
+제5조 (금지 행위)
+회원은 서비스의 정상 운영을 방해하는 행위, 타인의 개인정보 또는 저작권을 침해하는 행위, 자동화 수단으로 비정상적인 요청을 보내는 행위, 관련 법령을 위반하는 행위를 해서는 안 됩니다.
+
+제6조 (서비스 이용 제한)
+회사는 회원이 약관 또는 관련 법령을 위반하거나 서비스의 안전한 운영을 방해하는 경우 사전 안내 후 이용을 제한할 수 있습니다. 긴급한 보안 위험이 있는 경우에는 먼저 제한하고 이후 안내할 수 있습니다.
+
+제7조 (지식재산권)
+서비스의 화면, 상표, 캐릭터, 소프트웨어 등 회사가 제작한 콘텐츠의 권리는 회사에 있습니다. 회원이 등록한 콘텐츠의 권리는 회원에게 유지되며, 회사는 서비스 제공에 필요한 범위에서만 이를 이용합니다.
+
+제8조 (책임의 범위)
+날씨, 일정 및 AI 기반 코디 추천은 외부 데이터와 입력 정보에 따라 달라질 수 있습니다. 회사는 서비스의 안정적인 제공을 위해 노력하지만 천재지변, 통신 장애, 외부 사업자의 장애 등 합리적으로 통제하기 어려운 사유로 발생한 손해에 대해서는 관련 법령이 허용하는 범위에서 책임을 지지 않습니다.
+
+제9조 (회원 탈퇴)
+회원은 마이페이지에서 언제든지 탈퇴할 수 있습니다. 탈퇴가 완료되면 로그인 상태가 종료되고, 법령상 보관 의무가 있는 정보를 제외한 회원 데이터는 개인정보 처리방침에 따라 삭제됩니다.
+
+제10조 (약관의 변경 및 문의)
+약관이 변경되는 경우 적용일과 변경 사유를 서비스 내에서 안내합니다. 서비스 이용과 관련한 문의는 앱 내 문의 채널을 통해 접수할 수 있습니다.''';
+
+  static const _privacyPolicy = '''시행일: 2026년 8월 19일
+
+착착은 회원의 개인정보를 안전하게 보호하고, 필요한 범위에서만 처리합니다.
+
+1. 수집하는 개인정보
+• Google 로그인 정보: 이름, 이메일 주소, 프로필 사진, 계정 식별자
+• 회원이 직접 입력하는 정보: 성별, 키, 몸무게, 선호 스타일, 날씨 지역
+• 옷장 정보: 의류 사진, 이름, 카테고리, 세부 카테고리, 색상, 핏, 구매일, 보관 위치, 착용 기록
+• 일정 정보: 회원이 입력한 일정과 회원의 동의를 받아 가져온 Google 캘린더 일정
+• 서비스 이용 정보: 접속 기록, 기능 이용 기록, 오류 기록, 기기 및 브라우저 정보
+
+2. 개인정보의 이용 목적
+• 회원 식별과 로그인 상태 유지
+• 옷장 데이터 저장 및 기기 간 동기화
+• 날씨·일정·선호를 반영한 개인화 코디 추천
+• 메이트 대화와 요청한 코디 결과 제공
+• 서비스 오류 확인, 보안 유지 및 품질 개선
+• 회원 문의와 탈퇴 요청 처리
+
+3. 보유 및 이용 기간
+개인정보는 회원 탈퇴 시 지체 없이 삭제합니다. 다만 관계 법령에 따라 보관해야 하는 정보는 해당 법령이 정한 기간 동안 별도로 보관한 후 삭제합니다. 로컬 기기에 저장된 일부 설정은 앱 데이터 삭제 또는 브라우저 저장 공간 삭제 시 함께 제거될 수 있습니다.
+
+4. 개인정보의 제3자 제공
+착착은 원칙적으로 회원의 개인정보를 제3자에게 판매하거나 제공하지 않습니다. 법령에 근거가 있거나 회원이 별도로 동의한 경우에만 필요한 범위에서 제공합니다.
+
+5. 처리 업무의 위탁 및 외부 서비스
+서비스 제공을 위해 Google Firebase의 인증·데이터 저장 기능, 날씨 정보 제공 기관의 API, AI 응답 제공 사업자의 API를 사용할 수 있습니다. 외부 사업자에게는 각 기능 수행에 필요한 최소한의 정보만 전달하며, 옷장 이미지나 일정 원문은 해당 기능에 필요하지 않은 경우 전달하지 않습니다.
+
+6. 개인정보의 국외 처리 가능성
+Google 인증 및 클라우드 인프라 등 글로벌 서비스 사용 과정에서 정보가 국외 서버에서 처리될 수 있습니다. 이 경우 관련 법령이 요구하는 보호조치와 고지·동의 절차를 준수합니다.
+
+7. 회원의 권리
+회원은 마이페이지에서 자신의 프로필과 설정을 조회·수정할 수 있으며, 옷장과 일정 정보를 직접 삭제할 수 있습니다. 회원 탈퇴를 통해 개인정보 삭제를 요청할 수 있고, 동의 철회와 처리 정지를 요청할 수 있습니다.
+
+8. 개인정보 보호조치
+착착은 인증된 사용자만 자신의 데이터에 접근하도록 권한을 구분하고, 전송 구간 암호화, 접근 통제, 최소 권한 부여 등 개인정보 보호를 위한 기술적·관리적 조치를 적용합니다.
+
+9. 아동의 개인정보
+서비스는 만 14세 미만 아동을 대상으로 하지 않습니다. 만 14세 미만 사용자의 정보가 수집된 사실을 확인한 경우 필요한 확인 절차를 거쳐 삭제합니다.
+
+10. 개인정보 관련 문의
+개인정보의 조회, 수정, 삭제, 처리 정지 또는 기타 문의는 앱 내 문의 채널로 접수할 수 있습니다. 처리방침이 변경되는 경우 적용일 전에 서비스 내에서 안내합니다.''';
+
   bool _isSigningIn = false;
   bool _isLoginModalOpen = false;
   bool _isConsentModalOpen = false;
@@ -525,17 +653,13 @@ class _LandingScreenState extends State<LandingScreen> {
   Future<void> _acceptConsent() async {
     final result = _pendingSignIn;
     if (result == null || !_termsAccepted || !_privacyAccepted) return;
-    await widget.profileStore?.markTermsAccepted(result.userId);
-    if (!mounted) return;
-    // 목적 화면이 결정되기 전에 동의 모달을 닫으면 비동기 프로필 조회 동안
-    // 랜딩/홈이 잠깐 보인다. 상위 AppFlow가 온보딩 또는 홈으로 교체될 때까지
-    // 현재 화면을 유지해 중간 화면 노출을 막습니다.
-    await widget.onSignedIn(result);
-    if (!mounted) return;
-    setState(() {
-      _isConsentModalOpen = false;
-      _pendingSignIn = null;
-    });
+    final profileStore = widget.profileStore;
+    if (profileStore != null) {
+      unawaited(profileStore.markTermsAccepted(result.userId));
+    }
+    // 약관 동의를 표시한 계정은 온보딩 미완료 사용자이므로 원격 프로필을
+    // 재조회나 저장 완료를 기다리지 않고 즉시 첫 온보딩 화면으로 전환합니다.
+    await widget.onConsentAccepted(result);
   }
 
   Future<void> _cancelConsent() async {
@@ -549,35 +673,88 @@ class _LandingScreenState extends State<LandingScreen> {
     });
   }
 
-  Future<void> _showPolicy(
-          {required BuildContext presentationContext,
-          required String title,
-          required String content}) =>
+  Future<void> _showPolicy({
+    required BuildContext presentationContext,
+    required String title,
+    required String content,
+  }) =>
       showModalBottomSheet<void>(
         context: presentationContext,
         isScrollControlled: true,
-        showDragHandle: true,
-        backgroundColor: AppColors.paper,
-        builder: (context) => SafeArea(
-            child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: ChakchakTypography.section),
-                const SizedBox(height: 12),
-                Text(content,
-                    style: const TextStyle(
-                        fontSize: 12, height: 1.6, color: Color(0xFF63706C))),
-                const SizedBox(height: 18),
-                OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48)),
-                    child: const Text('확인')),
-              ]),
-        )),
+        useSafeArea: false,
+        backgroundColor: Colors.transparent,
+        barrierColor: const Color(0x99142A25),
+        builder: (sheetContext) => FractionallySizedBox(
+          heightFactor: .84,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppColors.paper,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(ChakchakRadii.card),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.line,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 10, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: ChakchakTypography.section,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '닫기',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      child: Text(
+                        content,
+                        style: const TextStyle(
+                          fontFamily: 'Paperlogy',
+                          fontSize: 13,
+                          height: 1.65,
+                          color: Color(0xFF4F5D59),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                    child: _ExactButton(
+                      height: 48,
+                      background: AppColors.mint,
+                      foreground: Colors.white,
+                      radius: 14,
+                      label: '확인',
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
 
   @override
@@ -608,14 +785,12 @@ class _LandingScreenState extends State<LandingScreen> {
               onOpenTerms: () => _showPolicy(
                 presentationContext: context,
                 title: '서비스 이용약관',
-                content:
-                    '착착은 사용자가 등록한 옷, 날씨와 일정 정보를 활용해 코디를 추천합니다. Google 계정으로 가입하며 등록 정보는 코디 추천 제공을 위해 처리됩니다.',
+                content: _termsPolicy,
               ),
               onOpenPrivacy: () => _showPolicy(
                 presentationContext: context,
                 title: '개인정보 처리방침',
-                content:
-                    'Google 계정의 이름·이메일·프로필 사진과 사용자가 입력한 옷장·일정·선호 정보를 로그인과 개인화 추천 목적으로 처리합니다. 회원 탈퇴 시 착착 데이터를 삭제합니다.',
+                content: _privacyPolicy,
               ),
               onAccept: _acceptConsent,
               onCancel: _cancelConsent,
@@ -651,67 +826,87 @@ class _SignupConsentOverlay extends StatelessWidget {
           const Positioned.fill(
             child: ColoredBox(color: Color(0x80142A25)),
           ),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 22,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 23, 20, 19),
-              decoration: BoxDecoration(
-                color: AppColors.paper,
-                borderRadius: BorderRadius.circular(AppRadius.card),
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Transform.translate(
+                offset:
+                    Offset(0, MediaQuery.sizeOf(context).height * (1 - value)),
+                child: child,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: Text(
-                      '착착 가입 약관 동의',
-                      style: ChakchakTypography.section,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    23,
+                    20,
+                    18 + MediaQuery.viewPaddingOf(context).bottom,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: AppColors.paper,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(ChakchakRadii.card),
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  const Center(
-                    child: Text(
-                      '처음 가입할 때 한 번만 동의하면 됩니다.',
-                      style: TextStyle(fontSize: 12, color: AppColors.muted),
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Center(
+                        child: Text(
+                          '착착 가입 약관 동의',
+                          style: ChakchakTypography.section,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Center(
+                        child: Text(
+                          '처음 가입할 때 한 번만 동의하면 됩니다.',
+                          style:
+                              TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _ConsentRow(
+                        value: terms,
+                        label: '서비스 이용약관',
+                        onChanged: onTermsChanged,
+                        onOpen: onOpenTerms,
+                      ),
+                      const SizedBox(height: 4),
+                      _ConsentRow(
+                        value: privacy,
+                        label: '개인정보 처리방침',
+                        onChanged: onPrivacyChanged,
+                        onOpen: onOpenPrivacy,
+                      ),
+                      const SizedBox(height: 20),
+                      _ExactButton(
+                        height: 48,
+                        background: AppColors.mint,
+                        foreground: Colors.white,
+                        radius: 14,
+                        enabled: terms && privacy,
+                        label: '동의하고 가입하기',
+                        onPressed: onAccept,
+                      ),
+                      const SizedBox(height: 8),
+                      _ExactButton(
+                        height: 48,
+                        background: Colors.white,
+                        foreground: AppColors.ink,
+                        border: AppColors.line,
+                        radius: 13,
+                        label: '가입 취소',
+                        onPressed: onCancel,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 9),
-                  _ConsentRow(
-                    value: terms,
-                    label: '서비스 이용약관',
-                    onChanged: onTermsChanged,
-                    onOpen: onOpenTerms,
-                  ),
-                  _ConsentRow(
-                    value: privacy,
-                    label: '개인정보 처리방침',
-                    onChanged: onPrivacyChanged,
-                    onOpen: onOpenPrivacy,
-                  ),
-                  const SizedBox(height: 10),
-                  _ExactButton(
-                    height: 48,
-                    background: AppColors.mint,
-                    foreground: Colors.white,
-                    radius: 14,
-                    enabled: terms && privacy,
-                    label: '동의하고 가입하기',
-                    onPressed: onAccept,
-                  ),
-                  const SizedBox(height: 8),
-                  _ExactButton(
-                    height: 48,
-                    background: Colors.white,
-                    foreground: AppColors.ink,
-                    border: AppColors.line,
-                    radius: 13,
-                    label: '가입 취소',
-                    onPressed: onCancel,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -783,7 +978,7 @@ class _ExactButton extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           label,
-                          style: ChakchakTypography.bodyStrong
+                          style: ChakchakTypography.labelStrong
                               .copyWith(color: foreground),
                         ),
                       ],
@@ -791,7 +986,7 @@ class _ExactButton extends StatelessWidget {
                   : Text(
                       label,
                       textAlign: TextAlign.center,
-                      style: ChakchakTypography.bodyStrong.copyWith(
+                      style: ChakchakTypography.labelStrong.copyWith(
                         color:
                             enabled ? foreground : ChakchakColors.disabledText,
                       ),
@@ -1192,7 +1387,7 @@ class _LandingGoogleButton extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           isSigningIn ? 'Google 계정 연결 중...' : 'Google로 시작하기',
-                          style: ChakchakTypography.bodyStrong,
+                          style: ChakchakTypography.labelStrong,
                         ),
                       ],
                     ),
@@ -1480,8 +1675,8 @@ class OnboardingResult {
     required this.useBasicWardrobe,
   });
 
-  final int height;
-  final int weight;
+  final int? height;
+  final int? weight;
   final String gender;
   final bool useBasicWardrobe;
 }
@@ -1504,7 +1699,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final LocationWeatherService _locationService = LocationWeatherService();
   final TextEditingController heightController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
-  String gender = '여';
+  String gender = '선택 안 함';
   bool useBasicWardrobe = true;
   String? bodyProfileError;
 
@@ -1517,16 +1712,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _next() {
     if (step == 2) {
-      final height = int.tryParse(heightController.text.trim());
-      final weight = int.tryParse(weightController.text.trim());
-      if (height == null ||
-          weight == null ||
-          height < 120 ||
-          height > 220 ||
-          weight < 30 ||
-          weight > 200) {
+      final rawHeight = heightController.text.trim();
+      final rawWeight = weightController.text.trim();
+      final height = rawHeight.isEmpty ? null : int.tryParse(rawHeight);
+      final weight = rawWeight.isEmpty ? null : int.tryParse(rawWeight);
+      final invalidHeight = rawHeight.isNotEmpty &&
+          (height == null || height < 120 || height > 220);
+      final invalidWeight = rawWeight.isNotEmpty &&
+          (weight == null || weight < 30 || weight > 200);
+      if (invalidHeight || invalidWeight) {
         setState(() {
-          bodyProfileError = '키 120~220cm, 몸무게 30~200kg 범위로 입력해주세요.';
+          bodyProfileError = '입력한다면 키는 120~220cm, 몸무게는 30~200kg 범위로 적어주세요.';
         });
         return;
       }
@@ -1548,7 +1744,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       locationError = null;
     });
     try {
-      final result = await _locationService.locateCurrentRegion();
+      final result = await _locationService
+          .locateCurrentRegion()
+          .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
         if (koreaRegions.contains(result.region)) {
@@ -1562,7 +1760,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       setState(() {
         locationError = detail.contains('denied') || detail.contains('권한')
             ? '위치 권한이 꺼져 있어요. 지역을 직접 선택해주세요.'
-            : '현재 위치를 찾지 못했어요. 잠시 후 다시 시도해주세요.';
+            : detail.contains('timeout')
+                ? '위치 확인이 지연되고 있어요. 지역을 직접 선택해주세요.'
+                : '현재 위치를 찾지 못했어요. 잠시 후 다시 시도해주세요.';
       });
     } finally {
       if (mounted) setState(() => locating = false);
@@ -1729,6 +1929,8 @@ class _OnboardingCopy extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         style: ChakchakTypography.bodyLight.copyWith(
+          fontSize: 13,
+          height: 1.4,
           color: ChakchakColors.textStrongSecondary,
         ),
       );
@@ -1773,17 +1975,29 @@ class _OnboardingCity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-      width: 281.890625,
+      width: double.infinity,
       child: Column(
         key: const ValueKey('city'),
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _OnboardingCharacter('assets/characters/chakchak-travel.png'),
+          const Align(
+            alignment: Alignment.center,
+            child:
+                _OnboardingCharacter('assets/characters/chakchak-travel.png'),
+          ),
           const SizedBox(height: 24),
           const _OnboardingHeading('오늘의 날씨는\n어디를 기준으로 볼까요?'),
           const SizedBox(height: 10),
-          const _OnboardingCopy('내 위치를 찾거나 지역을 직접 고를 수 있어요.'),
+          const Text(
+            '내 위치를 찾거나 지역을 직접 고를 수 있어요.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w400,
+              color: ChakchakColors.textStrongSecondary,
+            ),
+          ),
           const SizedBox(height: 18),
           GestureDetector(
             onTap: locating ? null : onUseCurrentLocation,
@@ -1814,7 +2028,7 @@ class _OnboardingCity extends StatelessWidget {
                   Text(
                     locating ? '현재 위치 찾는 중...' : '내 위치로 찾기',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AppColors.ink,
                     ),
@@ -1828,7 +2042,7 @@ class _OnboardingCity extends StatelessWidget {
             Text(
               locationError ?? '현재 위치 · $locationLabel',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 13,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
                 color: locationError == null
@@ -1870,7 +2084,7 @@ class _OnboardingStyle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-      width: 324,
+      width: double.infinity,
       child: Column(
         key: const ValueKey('style'),
         mainAxisSize: MainAxisSize.min,
@@ -1931,7 +2145,7 @@ class _OnboardingBodyAndCloset extends StatelessWidget {
           const _OnboardingHeading('내 몸과 옷장 준비를\n마지막으로 알려주세요.'),
           const SizedBox(height: 7),
           const _OnboardingCopy('입력한 정보는 내게 맞는 핏을 추천할 때만 사용해요.'),
-          const SizedBox(height: 13),
+          const SizedBox(height: ChakchakSpacing.lg),
           Row(children: [
             Expanded(
               child: _OnboardingNumberField(
@@ -1953,9 +2167,14 @@ class _OnboardingBodyAndCloset extends StatelessWidget {
               ),
             ),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: ChakchakSpacing.lg),
+          const Text(
+            '성별',
+            style: ChakchakTypography.bodyStrong,
+          ),
+          const SizedBox(height: ChakchakSpacing.sm),
           Row(children: [
-            for (final value in ['남', '여']) ...[
+            for (final value in ['남', '여', '선택 안 함']) ...[
               Expanded(
                 child: _OnboardingGenderChoice(
                   value: value,
@@ -1963,11 +2182,11 @@ class _OnboardingBodyAndCloset extends StatelessWidget {
                   onTap: () => onGenderChanged(value),
                 ),
               ),
-              if (value == '남') const SizedBox(width: 9),
+              if (value != '선택 안 함') const SizedBox(width: 7),
             ],
           ]),
           if (errorText != null) ...[
-            const SizedBox(height: 5),
+            const SizedBox(height: ChakchakSpacing.sm),
             Text(
               errorText!,
               style: const TextStyle(
@@ -1978,28 +2197,21 @@ class _OnboardingBodyAndCloset extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 13),
+          const SizedBox(height: ChakchakSpacing.lg),
           const Text(
             '내 옷장은 어떻게 시작할까요?',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-            ),
+            style: ChakchakTypography.bodyStrong,
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: ChakchakSpacing.sm),
           _OnboardingWardrobeChoice(
             selected: useBasicWardrobe,
             title: '베이직 아이템으로 채우기',
-            description: '블랙·화이트·데님·베이지 기본템으로 바로 시작해요.',
             onTap: () => onWardrobeChanged(true),
-            showPreview: true,
           ),
           const SizedBox(height: 7),
           _OnboardingWardrobeChoice(
             selected: !useBasicWardrobe,
             title: '내가 하나하나 채우기',
-            description: '빈 옷장에서 내 옷을 직접 등록할게요.',
             onTap: () => onWardrobeChanged(false),
           ),
         ],
@@ -2059,48 +2271,58 @@ class _OnboardingNumberField extends StatelessWidget {
   final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(AppRadius.control),
-        ),
-        child: Row(children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) => onChanged(),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: label,
-                hintStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF9AA4A0),
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: ChakchakTypography.bodyStrong),
+          const SizedBox(height: ChakchakSpacing.sm),
+          Container(
+            height: AppA11y.inputHeight,
+            padding: const EdgeInsets.symmetric(
+              horizontal: ChakchakSpacing.controlHorizontal,
+              vertical: ChakchakSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: ChakchakColors.surface,
+              border: Border.all(color: ChakchakColors.borderDefault),
+              borderRadius: BorderRadius.circular(ChakchakRadii.control),
+            ),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => onChanged(),
+                  style: ChakchakTypography.body.copyWith(
+                    color: ChakchakColors.textStrongSecondary,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    hintText: '입력',
+                    hintStyle: ChakchakTypography.body.copyWith(
+                      color: ChakchakColors.textDisabled,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    filled: false,
+                  ),
                 ),
-                contentPadding: EdgeInsets.zero,
               ),
-            ),
+              Text(
+                unit,
+                style: ChakchakTypography.labelStrong.copyWith(
+                  color: ChakchakColors.textDisabled,
+                ),
+              ),
+            ]),
           ),
-          Text(
-            unit,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF77817E),
-            ),
-          ),
-        ]),
+        ],
       );
 }
 
@@ -2108,16 +2330,12 @@ class _OnboardingWardrobeChoice extends StatelessWidget {
   const _OnboardingWardrobeChoice({
     required this.selected,
     required this.title,
-    required this.description,
     required this.onTap,
-    this.showPreview = false,
   });
 
   final bool selected;
   final String title;
-  final String description;
   final VoidCallback onTap;
-  final bool showPreview;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -2152,57 +2370,11 @@ class _OnboardingWardrobeChoice extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                      )),
-                  const SizedBox(height: 2),
-                  Text(description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        color: Color(0xFF6D7774),
-                      )),
-                ],
+              child: Text(
+                title,
+                style: ChakchakTypography.labelStrong,
               ),
             ),
-            if (showPreview) ...[
-              const SizedBox(width: 5),
-              SizedBox(
-                width: 62,
-                height: 38,
-                child: Stack(
-                  children: [
-                    for (var index = 0; index < 3; index++)
-                      Positioned(
-                        left: index * 17,
-                        child: Container(
-                          width: 30,
-                          height: 38,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: starterBasicGarments[index].tone,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          child: ColorizedGarmentAsset(
-                            assetPath: starterBasicGarments[index].assetPath!,
-                            color: starterBasicGarments[index].tintColor!,
-                            semanticLabel: starterBasicGarments[index].name,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
           ]),
         ),
       );
@@ -2218,6 +2390,7 @@ class MainShell extends StatefulWidget {
       this.initialWeight,
       this.initialGender,
       this.initialIndex = 0,
+      this.accountUserId,
       this.accountDisplayName,
       this.accountEmail,
       this.accountPhotoUrl,
@@ -2229,6 +2402,7 @@ class MainShell extends StatefulWidget {
   final int? initialWeight;
   final String? initialGender;
   final int initialIndex;
+  final String? accountUserId;
   final String? accountDisplayName;
   final String? accountEmail;
   final String? accountPhotoUrl;
@@ -2240,7 +2414,9 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  static const _savedOutfitsStorageKey = 'chakchak_saved_outfits_v1';
+  static const _legacySavedOutfitsStorageKey = 'chakchak_saved_outfits_v1';
+  static const _wardrobeStoragePrefix = 'chakchak.wardrobe.items.v1';
+  static const _savedOutfitsStoragePrefix = 'chakchak.outfits.saved.v2';
   late int index;
   bool outfitSaved = false;
   late final List<GarmentItem> garments;
@@ -2254,13 +2430,78 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     index = widget.initialIndex;
-    garments = List.of(widget.initialGarments ?? starterBasicGarments);
-    _loadSavedOutfits();
+    garments = (widget.initialGarments ?? starterBasicGarments)
+        .map((item) => item.ensureStableId())
+        .toList(growable: true);
+    unawaited(_restoreLocalData());
+  }
+
+  String get _storageIdentity {
+    final userId = widget.accountUserId?.trim();
+    if (userId != null && userId.isNotEmpty) return userId;
+    final email = widget.accountEmail?.trim().toLowerCase();
+    if (email != null && email.isNotEmpty) return email;
+    return 'anonymous';
+  }
+
+  String get _wardrobeStorageKey => '$_wardrobeStoragePrefix.$_storageIdentity';
+
+  String get _savedOutfitsStorageKey =>
+      '$_savedOutfitsStoragePrefix.$_storageIdentity';
+
+  Future<void> _restoreLocalData() async {
+    await _loadWardrobe();
+    await _loadSavedOutfits();
+  }
+
+  Future<void> _loadWardrobe() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_wardrobeStorageKey);
+    if (raw == null || raw.isEmpty) return;
+    final decoded = <GarmentItem>[];
+    var storedListWasEmpty = false;
+    try {
+      final values = jsonDecode(raw);
+      if (values is! List) return;
+      storedListWasEmpty = values.isEmpty;
+      for (final value in values.whereType<Map>()) {
+        try {
+          decoded.add(GarmentItem.fromJson(Map<String, dynamic>.from(value))
+              .ensureStableId());
+        } catch (_) {
+          // A single damaged garment must not prevent the rest of the wardrobe
+          // from being restored.
+        }
+      }
+    } catch (_) {
+      // Corrupt legacy/local JSON should not block app startup.
+      return;
+    }
+    if (!mounted || (decoded.isEmpty && !storedListWasEmpty)) return;
+    setState(() {
+      garments
+        ..clear()
+        ..addAll(decoded);
+    });
+  }
+
+  Future<void> _persistWardrobe() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        _wardrobeStorageKey,
+        jsonEncode(garments.map((item) => item.toJson()).toList()),
+      );
+    } catch (error) {
+      debugPrint('Failed to persist wardrobe: $error');
+    }
   }
 
   Future<void> _loadSavedOutfits() async {
     final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString(_savedOutfitsStorageKey);
+    final scopedRaw = preferences.getString(_savedOutfitsStorageKey);
+    final legacyRaw = preferences.getString(_legacySavedOutfitsStorageKey);
+    final raw = scopedRaw ?? legacyRaw;
     final decoded = <SavedOutfitRecord>[];
     try {
       if (raw != null && raw.isNotEmpty) {
@@ -2291,15 +2532,26 @@ class _MainShellState extends State<MainShell> {
       outfitSaved =
           decoded.any((record) => DateUtils.isSameDay(record.date, today));
     });
-    if (seededDemoRecords) await _persistSavedOutfits();
+    final isMigratingLegacy = scopedRaw == null && legacyRaw != null;
+    if (seededDemoRecords || isMigratingLegacy) {
+      await _persistSavedOutfits();
+      if (isMigratingLegacy &&
+          preferences.containsKey(_savedOutfitsStorageKey)) {
+        await preferences.remove(_legacySavedOutfitsStorageKey);
+      }
+    }
   }
 
   Future<void> _persistSavedOutfits() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-      _savedOutfitsStorageKey,
-      jsonEncode(savedOutfits.map((record) => record.toJson()).toList()),
-    );
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        _savedOutfitsStorageKey,
+        jsonEncode(savedOutfits.map((record) => record.toJson()).toList()),
+      );
+    } catch (error) {
+      debugPrint('Failed to persist saved outfits: $error');
+    }
   }
 
   void _toggleOutfitSaved() {
@@ -2329,6 +2581,7 @@ class _MainShellState extends State<MainShell> {
       title: outfit.title,
       description: outfit.description,
       garmentNames: items.map((item) => item.name).toList(growable: false),
+      garmentIds: items.map((item) => item.stableId).toList(growable: false),
     );
     setState(() {
       savedOutfits.removeWhere((item) => DateUtils.isSameDay(item.date, today));
@@ -2337,16 +2590,68 @@ class _MainShellState extends State<MainShell> {
     unawaited(_persistSavedOutfits());
   }
 
+  Future<void> _openOutfitPhotoImport() async {
+    final result = await showModalBottomSheet<OutfitPhotoImportResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.paper,
+      barrierColor: const Color(0x66192420),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const OutfitPhotoImportSheet(),
+    );
+    if (result == null || !mounted) return;
+
+    final matchedIds = result.matchedGarmentIds.toSet();
+    final matchedNames = result.matchedGarmentNames.toSet();
+    final today = DateUtils.dateOnly(DateTime.now());
+    setState(() {
+      for (var i = 0; i < garments.length; i++) {
+        final item = garments[i];
+        if (matchedIds.contains(item.stableId) ||
+            matchedNames.contains(item.name)) {
+          garments[i] = item.copyWith(lastWornLabel: '오늘 착용');
+        }
+      }
+      garments.insertAll(
+        0,
+        result.newGarments.map((item) => item.ensureStableId()),
+      );
+      savedOutfits
+          .removeWhere((record) => DateUtils.isSameDay(record.date, today));
+      savedOutfits.insert(
+        0,
+        SavedOutfitRecord(
+          date: today,
+          title: '착장 사진으로 기록한 오늘의 코디',
+          description:
+              '사진에서 찾은 ${result.wornGarmentNames.length}개의 옷을 착용 기록으로 저장했어요.',
+          garmentNames: result.wornGarmentNames,
+          garmentIds: result.wornGarmentIds,
+        ),
+      );
+      outfitSaved = true;
+    });
+    unawaited(_persistWardrobe());
+    unawaited(_persistSavedOutfits());
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+        result.newGarments.isEmpty
+            ? '기존 옷과 매칭해 착용 기록을 업데이트했어요.'
+            : '새 옷 ${result.newGarments.length}벌을 추가하고 착용 기록을 저장했어요.',
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
       HomeScreen(
-          onAskMate: () => setState(() {
-                matePinnedGarment = null;
-                index = 2;
-              }),
           saved: outfitSaved,
           onSave: _toggleOutfitSaved,
+          onRegisterGarment: () => setState(() => index = 1),
           onOutfitToggle: _recordSelectedOutfit,
           garments: garments,
           savedOutfits: savedOutfits,
@@ -2364,34 +2669,43 @@ class _MainShellState extends State<MainShell> {
         garments: garments,
         outfitSaved: outfitSaved,
         savedOutfits: savedOutfits,
-        onAskMate: (item) => setState(() {
-          matePinnedGarment = item;
-          index = 2;
-        }),
+        onImportOutfitPhoto: _openOutfitPhotoImport,
         onUpdate: (previous, updated) {
-          final garmentIndex = garments.indexOf(previous);
+          final garmentIndex = garments.indexWhere(
+            (item) => item.stableId == previous.stableId,
+          );
           if (garmentIndex != -1) {
-            setState(() => garments[garmentIndex] = updated);
+            final stableUpdated = updated.copyWith(id: previous.stableId);
+            setState(() => garments[garmentIndex] = stableUpdated);
+            unawaited(_persistWardrobe());
           }
+        },
+        onDelete: (deleted) {
+          setState(() {
+            garments.removeWhere(
+              (item) => item.stableId == deleted.stableId,
+            );
+            mateSelectedOutfit = mateSelectedOutfit
+                ?.where((item) => item.stableId != deleted.stableId)
+                .toList(growable: false);
+          });
+          unawaited(_persistWardrobe());
         },
         onAdd: () async {
           final garment = await Navigator.of(context).push<GarmentItem>(
               MaterialPageRoute(builder: (_) => const AddGarmentScreen()));
-          if (garment != null) setState(() => garments.insert(0, garment));
+          if (garment != null) {
+            setState(() => garments.insert(0, garment.ensureStableId()));
+            unawaited(_persistWardrobe());
+          }
         },
       ),
-      MateChatScreen(
-          key: ValueKey('mate-${matePinnedGarment?.name ?? 'general'}'),
-          pinned: matePinnedGarment,
-          garments: garments,
-          schedules: mateSchedules,
-          weather: mateWeather,
-          onExit: () => setState(() => index = 0),
-          onUseOutfit: (items) => setState(() {
-                mateSelectedOutfit = List<GarmentItem>.unmodifiable(items);
-                outfitSaved = false;
-                index = 0;
-              })),
+      SavedOutfitsScreen(
+        hasSavedOutfit: outfitSaved,
+        records: savedOutfits,
+        garments: garments,
+        embedded: true,
+      ),
       ProfileScreen(
           accountDisplayName: widget.accountDisplayName,
           accountEmail: widget.accountEmail,
@@ -2429,8 +2743,8 @@ class _MainShellState extends State<MainShell> {
                 selected: index == 1,
                 onTap: () => setState(() => index = 1)),
             _BottomNavItem(
-                label: '메이트',
-                asset: 'assets/icons/nav-mate.svg',
+                label: '착장 기록',
+                asset: 'assets/icons/heart.svg',
                 selected: index == 2,
                 onTap: () => setState(() => index = 2)),
             _BottomNavItem(
@@ -2511,7 +2825,8 @@ class _NavSvgIcon extends StatelessWidget {
 class HomeScreen extends StatefulWidget {
   const HomeScreen(
       {super.key,
-      required this.onAskMate,
+      this.onAskMate,
+      this.onRegisterGarment,
       required this.saved,
       required this.onSave,
       required this.garments,
@@ -2521,7 +2836,8 @@ class HomeScreen extends StatefulWidget {
       this.onOutfitToggle,
       this.onContextChanged,
       this.onLoadGoogleCalendarEvents});
-  final VoidCallback onAskMate;
+  final VoidCallback? onAskMate;
+  final VoidCallback? onRegisterGarment;
   final bool saved;
   final VoidCallback onSave;
   final void Function(_TodayOutfitRecommendation outfit, bool selected)?
@@ -2790,17 +3106,13 @@ class _HomeScreenState extends State<HomeScreen> {
               OutfitCard(
                   saved: widget.saved,
                   onSave: widget.onSave,
+                  onRegisterGarment: widget.onRegisterGarment,
                   onOutfitToggle: widget.onOutfitToggle,
                   onAskMate: widget.onAskMate,
                   garments: widget.garments,
                   weather: _weather,
                   mateSelectedOutfit: widget.mateSelectedOutfit,
                   variationIndex: _outfitVariation,
-                  onRefresh: () {
-                    widget.onClearMateOutfit?.call();
-                    if (widget.saved) widget.onSave();
-                    setState(() => _outfitVariation += 1);
-                  },
                   scheduleContext: _todaySchedules
                       .map((item) => '${item.time} ${item.title}')
                       .join(', ')),
@@ -2914,7 +3226,7 @@ class _WeatherRegionSheet extends StatelessWidget {
                           '내 위치로 찾기',
                           style: TextStyle(
                             color: AppColors.ink,
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -3451,41 +3763,65 @@ class _ScheduleCard extends StatelessWidget {
   }
 }
 
-class OutfitCard extends StatelessWidget {
+class OutfitCard extends StatefulWidget {
   const OutfitCard(
       {super.key,
       required this.saved,
       required this.onSave,
-      required this.onAskMate,
+      this.onAskMate,
+      this.onRegisterGarment,
       required this.garments,
       this.onOutfitToggle,
       this.weather,
       this.mateSelectedOutfit,
       required this.scheduleContext,
-      this.variationIndex = 0,
-      this.onRefresh});
+      this.variationIndex = 0});
   final bool saved;
   final VoidCallback onSave;
   final void Function(_TodayOutfitRecommendation outfit, bool selected)?
       onOutfitToggle;
-  final VoidCallback onAskMate;
+  final VoidCallback? onAskMate;
+  final VoidCallback? onRegisterGarment;
   final List<GarmentItem> garments;
   final WeatherSnapshot? weather;
   final List<GarmentItem>? mateSelectedOutfit;
   final String scheduleContext;
   final int variationIndex;
-  final VoidCallback? onRefresh;
 
   @override
-  Widget build(BuildContext context) {
-    final recommendedOutfit = _recommendTodayOutfit(
-      garments: garments,
-      weather: weather,
-      scheduleContext: scheduleContext,
-      variationIndex: variationIndex,
-    );
+  State<OutfitCard> createState() => _OutfitCardState();
+}
+
+class _OutfitCardState extends State<OutfitCard> {
+  final PageController _pageController = PageController();
+  int _pageIndex = 0;
+  int? _selectedPageIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.saved) _selectedPageIndex = 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant OutfitCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.saved) _selectedPageIndex = null;
+    if (widget.saved && _selectedPageIndex == null) {
+      _selectedPageIndex = _pageIndex;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  List<_TodayOutfitRecommendation> _outfits() {
+    final recommendations = <_TodayOutfitRecommendation>[];
     GarmentItem? selectedCategory(String category) {
-      final selected = mateSelectedOutfit;
+      final selected = widget.mateSelectedOutfit;
       if (selected == null) return null;
       for (final item in selected) {
         if (item.category == category) return item;
@@ -3493,153 +3829,284 @@ class OutfitCard extends StatelessWidget {
       return null;
     }
 
-    final hasMateOutfit = mateSelectedOutfit != null &&
-        mateSelectedOutfit!.where((item) => item.name.isNotEmpty).length >= 2;
-    final outfit = hasMateOutfit
-        ? _TodayOutfitRecommendation(
-            top: selectedCategory('상의') ?? recommendedOutfit.top,
-            bottom: selectedCategory('하의') ?? recommendedOutfit.bottom,
-            shoes: selectedCategory('신발'),
-            outer: selectedCategory('아우터'),
-            dress: selectedCategory('원피스'),
-            title: mateSelectedOutfit!.map((item) => item.name).join(' · '),
-            description: '메이트와 함께 고른 오늘의 코디예요.',
-          )
-        : recommendedOutfit;
-    final temperature = weather?.temperature.round() ?? 28;
+    final hasMateOutfit = widget.mateSelectedOutfit != null &&
+        widget.mateSelectedOutfit!
+                .where((item) => item.name.isNotEmpty)
+                .length >=
+            2;
+    if (hasMateOutfit) {
+      final fallback = _recommendTodayOutfit(
+        garments: widget.garments,
+        weather: widget.weather,
+        scheduleContext: widget.scheduleContext,
+      );
+      recommendations.add(_TodayOutfitRecommendation(
+        top: selectedCategory('상의') ?? fallback.top,
+        bottom: selectedCategory('하의') ?? fallback.bottom,
+        shoes: selectedCategory('신발'),
+        outer: selectedCategory('아우터'),
+        dress: selectedCategory('원피스'),
+        title: widget.mateSelectedOutfit!.map((item) => item.name).join(' · '),
+        description: '메이트와 함께 고른 오늘의 코디예요.',
+      ));
+    }
+
+    final fingerprints = <String>{
+      for (final outfit in recommendations) outfit.fingerprint,
+    };
+    for (var variation = 0;
+        variation < 8 && recommendations.length < 3;
+        variation++) {
+      final outfit = _recommendTodayOutfit(
+        garments: widget.garments,
+        weather: widget.weather,
+        scheduleContext: widget.scheduleContext,
+        variationIndex: widget.variationIndex + variation,
+      );
+      if (fingerprints.add(outfit.fingerprint)) recommendations.add(outfit);
+    }
+    return recommendations.take(3).toList(growable: false);
+  }
+
+  void _toggleSelection(int pageIndex, _TodayOutfitRecommendation outfit) {
+    final isSelected = widget.saved && _selectedPageIndex == pageIndex;
+    if (isSelected) {
+      widget.onSave();
+      widget.onOutfitToggle?.call(outfit, false);
+      setState(() => _selectedPageIndex = null);
+      return;
+    }
+    if (!widget.saved) widget.onSave();
+    widget.onOutfitToggle?.call(outfit, true);
+    setState(() => _selectedPageIndex = pageIndex);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.garments.isEmpty) {
+      return _EmptyTodayOutfit(
+        onRegisterGarment: widget.onRegisterGarment,
+      );
+    }
+    final outfits = _outfits();
+    final temperature = widget.weather?.temperature.round() ?? 28;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const _Pill(label: "TODAY'S PICK", color: AppColors.mintDark),
         const Spacer(),
-        Semantics(
-          button: true,
-          label: '다른 코디 보기',
-          child: GestureDetector(
-            onTap: onRefresh,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              key: const ValueKey('today-outfit-refresh'),
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: AppColors.line),
-                  borderRadius: BorderRadius.circular(ChakchakRadii.control)),
-              child: SvgPicture.asset('assets/icons/refresh.svg',
-                  width: 19,
-                  height: 19,
-                  colorFilter:
-                      const ColorFilter.mode(AppColors.ink, BlendMode.srcIn)),
-            ),
-          ),
-        ),
+        Text('${_pageIndex + 1} / ${outfits.length}',
+            style: ChakchakTypography.caption.copyWith(
+              color: ChakchakColors.textStrongSecondary,
+            )),
       ]),
       const SizedBox(height: 12),
-      _EditorialOutfitFlatLay(
-        top: outfit.top,
-        bottom: outfit.bottom,
-        shoes: outfit.shoes,
-        outer: outfit.outer,
-        dress: outfit.dress,
-      ),
-      const SizedBox(height: 14),
-      Text(outfit.title, style: ChakchakTypography.card),
-      const SizedBox(height: ChakchakSpacing.sm),
-      Text(outfit.description,
-          style: ChakchakTypography.bodyLight.copyWith(
-            color: ChakchakColors.textStrongSecondary,
-          )),
-      const SizedBox(height: 15),
-      Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.auto_awesome_rounded,
-                size: 17, color: AppColors.mintDark),
-            const SizedBox(width: 7),
-            Expanded(
-                child: Text(
-                    scheduleContext.isEmpty
-                        ? '$temperature°의 날씨와 편안한 하루를 고려했어요.'
-                        : '$temperature° 날씨와 $scheduleContext 일정을 고려했어요.',
-                    style: const TextStyle(
-                        fontSize: AppA11y.captionSize,
-                        fontWeight: FontWeight.w600)))
-          ])),
-      const SizedBox(height: 16),
-      Semantics(
-        button: true,
-        toggled: saved,
-        label: saved ? '오늘의 픽 선택 취소' : '오늘의 픽으로 선택',
-        child: GestureDetector(
-          onTap: () {
-            onSave();
-            onOutfitToggle?.call(outfit, !saved);
-          },
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-                color: saved ? AppColors.mintDark : Colors.white,
-                border: Border.all(
-                    color: saved ? AppColors.mintDark : AppColors.line),
-                borderRadius: BorderRadius.circular(AppRadius.control)),
-            child: Row(children: [
-              SvgPicture.asset('assets/icons/heart.svg',
-                  width: 20,
-                  height: 20,
-                  colorFilter: ColorFilter.mode(
-                      saved ? Colors.white : AppColors.ink, BlendMode.srcIn)),
-              const SizedBox(width: ChakchakSpacing.iconGap),
-              Expanded(
-                  child: Text(saved ? '오늘의 픽으로 선택했어요' : '오늘의 픽으로 선택',
-                      style: TextStyle(
-                          color: saved ? Colors.white : AppColors.ink,
-                          fontSize: 16,
-                          height: 1,
-                          fontWeight: FontWeight.w500))),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 42,
-                height: 24,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                    color: saved
-                        ? const Color(0x66FFFFFF)
-                        : const Color(0xFFE3E7E5),
-                    borderRadius: BorderRadius.circular(99)),
-                child: AnimatedAlign(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  alignment:
-                      saved ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: const BoxDecoration(
-                        color: Colors.white, shape: BoxShape.circle),
+      SizedBox(
+        key: const ValueKey('today-outfit-carousel'),
+        height: 535,
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: outfits.length,
+          onPageChanged: (value) => setState(() => _pageIndex = value),
+          itemBuilder: (context, index) {
+            final outfit = outfits[index];
+            final selected = widget.saved && _selectedPageIndex == index;
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _EditorialOutfitFlatLay(
+                    top: outfit.top,
+                    bottom: outfit.bottom,
+                    shoes: outfit.shoes,
+                    outer: outfit.outer,
+                    dress: outfit.dress,
                   ),
-                ),
-              ),
-            ]),
-          ),
+                  const SizedBox(height: 14),
+                  Text(outfit.title, style: ChakchakTypography.card),
+                  const SizedBox(height: ChakchakSpacing.sm),
+                  Text(outfit.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: ChakchakTypography.bodyLight.copyWith(
+                        color: ChakchakColors.textStrongSecondary,
+                      )),
+                  const SizedBox(height: 13),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.auto_awesome_rounded,
+                        size: 17, color: AppColors.mintDark),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        widget.scheduleContext.isEmpty
+                            ? '$temperature°의 날씨와 편안한 하루를 고려했어요.'
+                            : '$temperature° 날씨와 ${widget.scheduleContext} 일정을 고려했어요.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: AppA11y.captionSize,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ]),
+                  const Spacer(),
+                  Semantics(
+                    button: true,
+                    toggled: selected,
+                    label: selected ? '오늘의 픽 선택 취소' : '오늘의 픽으로 선택',
+                    child: GestureDetector(
+                      key: ValueKey('today-outfit-select-$index'),
+                      onTap: () => _toggleSelection(index, outfit),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: selected ? AppColors.mintDark : Colors.white,
+                          border: Border.all(
+                              color: selected
+                                  ? AppColors.mintDark
+                                  : AppColors.line),
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.control),
+                        ),
+                        child: Row(children: [
+                          SvgPicture.asset('assets/icons/heart.svg',
+                              width: 20,
+                              height: 20,
+                              colorFilter: ColorFilter.mode(
+                                  selected ? Colors.white : AppColors.ink,
+                                  BlendMode.srcIn)),
+                          const SizedBox(width: ChakchakSpacing.iconGap),
+                          Expanded(
+                            child: Text(
+                              selected ? '오늘의 픽으로 선택했어요' : '이 코디 선택하기',
+                              style: TextStyle(
+                                  color:
+                                      selected ? Colors.white : AppColors.ink,
+                                  fontSize: 14,
+                                  height: 1,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          Icon(
+                              selected
+                                  ? Icons.check_rounded
+                                  : Icons.swipe_rounded,
+                              size: 20,
+                              color: selected ? Colors.white : AppColors.muted),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ]);
+          },
         ),
       ),
       const SizedBox(height: 10),
-      OutlinedButton.icon(
-          onPressed: onAskMate,
-          icon: SvgPicture.asset('assets/icons/nav-mate.svg',
-              width: 20, height: 20),
-          label: const Text('메이트에게 다른 코디 물어보기'),
-          style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              foregroundColor: AppColors.ink,
-              side: const BorderSide(color: AppColors.line))),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(outfits.length, (index) {
+          final active = index == _pageIndex;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: active ? 20 : 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: active ? AppColors.mintDark : AppColors.line,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          );
+        }),
+      ),
+      if (widget.onAskMate != null) ...[
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+            onPressed: widget.onAskMate,
+            icon: SvgPicture.asset('assets/icons/nav-mate.svg',
+                width: 20, height: 20),
+            label: const Text('메이트에게 다른 코디 물어보기'),
+            style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: AppColors.ink,
+                side: const BorderSide(color: AppColors.line))),
+      ],
     ]);
   }
+}
+
+class _EmptyTodayOutfit extends StatelessWidget {
+  const _EmptyTodayOutfit({this.onRegisterGarment});
+
+  final VoidCallback? onRegisterGarment;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const ValueKey('today-outfit-empty'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _Pill(label: "TODAY'S PICK", color: AppColors.mintDark),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
+            decoration: BoxDecoration(
+              color: ChakchakColors.brandSubtle,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+            ),
+            child: Column(
+              children: [
+                SvgPicture.asset(
+                  'assets/icons/nav-wardrobe.svg',
+                  width: 38,
+                  height: 38,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.mintDark,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text('아직 등록된 옷이 없어요',
+                    textAlign: TextAlign.center,
+                    style: ChakchakTypography.card),
+                const SizedBox(height: 8),
+                Text(
+                  '내 옷장에 옷을 등록하면\n날씨와 일정에 맞는 코디를 추천해드려요.',
+                  textAlign: TextAlign.center,
+                  style: ChakchakTypography.bodyLight.copyWith(
+                    color: ChakchakColors.textStrongSecondary,
+                  ),
+                ),
+                if (onRegisterGarment != null) ...[
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    key: const ValueKey('today-outfit-register'),
+                    onTap: onRegisterGarment,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: 48,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.mintDark,
+                        borderRadius: BorderRadius.circular(AppRadius.control),
+                      ),
+                      child: const Text(
+                        '옷 등록하러 가기',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 class _TodayOutfitRecommendation {
@@ -3660,6 +4127,14 @@ class _TodayOutfitRecommendation {
   final GarmentItem? dress;
   final String title;
   final String description;
+
+  String get fingerprint => [
+        dress?.stableId,
+        top.stableId,
+        bottom.stableId,
+        shoes?.stableId,
+        outer?.stableId,
+      ].whereType<String>().join('|');
 }
 
 _TodayOutfitRecommendation _recommendTodayOutfit({
@@ -3722,6 +4197,38 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
     return 0;
   }
 
+  int favoriteScore(GarmentItem item) => item.isFavorite ? 9 : 0;
+
+  bool isNeutralColor(String color) =>
+      RegExp(r'화이트|아이보리|크림|베이지|블랙|그레이|네이비').hasMatch(color);
+
+  int colorHarmonyScore(GarmentItem first, GarmentItem second) {
+    if (first.color == second.color) return 3;
+    if (isNeutralColor(first.color) || isNeutralColor(second.color)) return 5;
+    final pair = '${first.color} ${second.color}';
+    if (RegExp(r'(라이트 블루|데님|블루).*(화이트|아이보리|베이지|브라운)|'
+            r'(화이트|아이보리|베이지|브라운).*(라이트 블루|데님|블루)')
+        .hasMatch(pair)) return 5;
+    if (RegExp(r'(핑크|코랄|레드).*(네이비|블루)|'
+            r'(네이비|블루).*(핑크|코랄|레드)')
+        .hasMatch(pair)) return 3;
+    return -2;
+  }
+
+  int silhouetteBalanceScore(GarmentItem top, GarmentItem bottom) {
+    final topDescriptor = '${top.fit} ${top.detailCategory}';
+    final bottomDescriptor = '${bottom.fit} ${bottom.detailCategory}';
+    final topLoose = RegExp(r'루즈|오버|박시|후드').hasMatch(topDescriptor);
+    final topCompact = RegExp(r'슬림|크롭').hasMatch(topDescriptor);
+    final bottomWide = RegExp(r'와이드|카고|플레어|루즈').hasMatch(bottomDescriptor);
+    final bottomStraight = RegExp(r'스트레이트|슬림|H라인').hasMatch(bottomDescriptor);
+    if (topLoose && bottomStraight) return 6;
+    if (topLoose && bottomWide) return -6;
+    if (topCompact && bottomWide) return 7;
+    if (topCompact && bottomStraight) return 3;
+    return 2;
+  }
+
   int brightDateScore(GarmentItem item) =>
       RegExp(r'핑크|코랄|레드|옐로|라벤더|민트|라이트 블루|아이보리|크림|화이트').hasMatch(item.color)
           ? 5
@@ -3742,7 +4249,7 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
   }
 
   final top = pick('상의', sampleGarments[0], (item) {
-    var score = neutralColorScore(item);
+    var score = neutralColorScore(item) + favoriteScore(item);
     final detail = item.detailCategory;
     if (temperature >= 28) {
       if (detail.contains('민소매')) score += 13;
@@ -3774,11 +4281,15 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
   }, offset: 0, isEligible: isTemperatureAppropriateTop);
 
   final bottom = pick('하의', sampleGarments[1], (item) {
-    var score = neutralColorScore(item);
+    var score = neutralColorScore(item) +
+        favoriteScore(item) +
+        colorHarmonyScore(top, item) +
+        silhouetteBalanceScore(top, item);
     final detail = item.detailCategory;
     if (isBusiness && RegExp(r'슬랙스|스트레이트 팬츠').hasMatch(detail)) {
       score += 8;
     }
+    if (isDate && RegExp(r'스커트').hasMatch(detail)) score += 12;
     if (isDate && RegExp(r'슬랙스|데님').hasMatch(detail)) score += 5;
     if (isExercise && RegExp(r'조거|반바지|버뮤다').hasMatch(detail)) {
       score += 9;
@@ -3796,7 +4307,9 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
   }, offset: 1);
 
   final shoes = pick('신발', sampleGarments[2], (item) {
-    var score = neutralColorScore(item);
+    var score = neutralColorScore(item) +
+        favoriteScore(item) +
+        colorHarmonyScore(bottom, item);
     final detail = item.detailCategory;
     if ((isBusiness || isDate) && detail.contains('로퍼')) score += 9;
     if (isExercise && detail.contains('러닝')) score += 10;
@@ -3811,7 +4324,7 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
       garments.any((item) => item.category == '원피스')) {
     dress = pick('원피스', garments.firstWhere((item) => item.category == '원피스'),
         (item) {
-      var score = 12 + brightDateScore(item);
+      var score = 12 + brightDateScore(item) + favoriteScore(item);
       if (temperature <= 8 && item.detailCategory.contains('긴팔')) score += 3;
       return score;
     });
@@ -3824,7 +4337,10 @@ _TodayOutfitRecommendation _recommendTodayOutfit({
         '아우터',
         sampleGarments[3],
         (item) {
-          var score = neutralColorScore(item);
+          var score = neutralColorScore(item) +
+              favoriteScore(item) +
+              colorHarmonyScore(top, item) +
+              colorHarmonyScore(bottom, item);
           final detail = item.detailCategory;
           if (isRain && RegExp(r'바람막이|트렌치').hasMatch(detail)) score += 12;
           if (temperature <= 4 && detail.contains('패딩')) score += 16;
@@ -4040,18 +4556,1057 @@ class _EditorialGarmentPiece extends StatelessWidget {
       );
 }
 
+class OutfitPhotoImportResult {
+  const OutfitPhotoImportResult({
+    required this.newGarments,
+    required this.matchedGarmentNames,
+    required this.wornGarmentNames,
+    this.matchedGarmentIds = const [],
+    this.wornGarmentIds = const [],
+  });
+
+  final List<GarmentItem> newGarments;
+  final List<String> matchedGarmentNames;
+  final List<String> wornGarmentNames;
+  final List<String> matchedGarmentIds;
+  final List<String> wornGarmentIds;
+}
+
+class _OutfitGarmentDraft {
+  const _OutfitGarmentDraft({
+    required this.detected,
+    required this.fallbackCroppedImage,
+    this.generatedImageBytes,
+    this.generating = false,
+    this.generationError,
+  });
+
+  final DetectedGarment detected;
+  final Uint8List fallbackCroppedImage;
+  final Uint8List? generatedImageBytes;
+  final bool generating;
+  final String? generationError;
+
+  _OutfitGarmentDraft copyWith({
+    DetectedGarment? detected,
+    Uint8List? generatedImageBytes,
+    bool clearGeneratedImage = false,
+    bool? generating,
+    String? generationError,
+    bool clearGenerationError = false,
+  }) =>
+      _OutfitGarmentDraft(
+        detected: detected ?? this.detected,
+        fallbackCroppedImage: fallbackCroppedImage,
+        generatedImageBytes: clearGeneratedImage
+            ? null
+            : generatedImageBytes ?? this.generatedImageBytes,
+        generating: generating ?? this.generating,
+        generationError: clearGenerationError
+            ? null
+            : generationError ?? this.generationError,
+      );
+}
+
+class OutfitPhotoImportSheet extends StatefulWidget {
+  const OutfitPhotoImportSheet({super.key});
+
+  @override
+  State<OutfitPhotoImportSheet> createState() => _OutfitPhotoImportSheetState();
+}
+
+class _OutfitPhotoImportSheetState extends State<OutfitPhotoImportSheet> {
+  final BackendService _backend = BackendService();
+  Uint8List? _sourceImage;
+  List<_OutfitGarmentDraft> _drafts = const [];
+  String? _errorMessage;
+  bool _analyzing = false;
+
+  String _mimeTypeFor(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  String _normalizedColor(String value) {
+    final compact = value.replaceAll(' ', '').toLowerCase();
+    if (compact.contains('네이비') || compact.contains('navy')) return '네이비';
+    if (compact.contains('브라운') ||
+        compact.contains('갈색') ||
+        compact.contains('brown')) {
+      return '브라운';
+    }
+    if (compact.contains('아이보리') ||
+        compact.contains('크림') ||
+        compact.contains('ivory') ||
+        compact.contains('cream')) {
+      return '아이보리';
+    }
+    if (compact.contains('베이지') || compact.contains('beige')) {
+      return '베이지';
+    }
+    if (compact.contains('블랙') ||
+        compact.contains('검정') ||
+        compact.contains('검은') ||
+        compact.contains('black')) {
+      return '블랙';
+    }
+    if (compact.contains('화이트') ||
+        compact.contains('흰색') ||
+        compact.contains('white')) {
+      return '화이트';
+    }
+    if (compact.contains('그레이') ||
+        compact.contains('회색') ||
+        compact.contains('gray') ||
+        compact.contains('grey')) {
+      return '그레이';
+    }
+    if (compact.contains('블루') ||
+        compact.contains('파랑') ||
+        compact.contains('청색') ||
+        compact.contains('데님') ||
+        compact.contains('blue')) {
+      return '블루';
+    }
+    if (compact.contains('핑크') || compact.contains('pink')) return '핑크';
+    if (compact.contains('레드') ||
+        compact.contains('빨간') ||
+        compact.contains('red')) {
+      return '레드';
+    }
+    if (compact.contains('그린') ||
+        compact.contains('초록') ||
+        compact.contains('카키') ||
+        compact.contains('green') ||
+        compact.contains('khaki')) {
+      return '그린';
+    }
+    return value.trim();
+  }
+
+  String _friendlyError(Object error) => error
+      .toString()
+      .replaceFirst('Bad state: ', '')
+      .replaceFirst('StateError: ', '');
+
+  Future<void> _pickAndAnalyze(ImageSource source) async {
+    if (_analyzing) return;
+    final file = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 78,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    setState(() {
+      _sourceImage = bytes;
+      _drafts = const [];
+      _errorMessage = null;
+      _analyzing = true;
+    });
+    try {
+      final analysis = await _backend.analyzeOutfitPhoto(
+        imageBytes: bytes,
+        mimeType: _mimeTypeFor(file.name),
+      );
+      final drafts = <_OutfitGarmentDraft>[];
+      for (final detected in analysis.items) {
+        final cropped = await _cropNormalizedImage(
+          bytes,
+          detected.box,
+        );
+        Uint8List? generated;
+        if (detected.generatedImageBase64 case final encoded?) {
+          try {
+            generated = base64Decode(encoded);
+          } catch (_) {
+            generated = null;
+          }
+        }
+        drafts.add(_OutfitGarmentDraft(
+          detected: detected,
+          fallbackCroppedImage: cropped,
+          generatedImageBytes: generated,
+          generationError: detected.generationError,
+        ));
+      }
+      if (!mounted) return;
+      setState(() => _drafts = drafts);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error
+            .toString()
+            .replaceFirst('Bad state: ', '')
+            .replaceFirst('StateError: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+  }
+
+  Color _toneFor(String color) {
+    final normalized = _normalizedColor(color);
+    return switch (normalized) {
+      '블랙' => const Color(0xFFE8ECEA),
+      '화이트' => const Color(0xFFF2EEE4),
+      '블루' || '네이비' => const Color(0xFFE5EFF7),
+      '베이지' || '브라운' => const Color(0xFFF4EADC),
+      '핑크' || '레드' => const Color(0xFFF7E5EA),
+      _ => const Color(0xFFEAF4EE),
+    };
+  }
+
+  InputDecoration _analysisFieldDecoration({String? hintText}) =>
+      InputDecoration(
+        hintText: hintText,
+        isDense: true,
+        filled: true,
+        fillColor: ChakchakColors.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: ChakchakColors.borderDefault),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              const BorderSide(color: ChakchakColors.brandPrimary, width: 1.5),
+        ),
+      );
+
+  Future<void> _editDraft(int index) async {
+    final current = _drafts[index];
+    final nameController = TextEditingController(text: current.detected.name);
+    final preciseColorController = TextEditingController(
+      text: current.detected.preciseColor.isEmpty
+          ? current.detected.color
+          : current.detected.preciseColor,
+    );
+    final hexController =
+        TextEditingController(text: current.detected.colorHex);
+    final materialController =
+        TextEditingController(text: current.detected.materialTexture);
+    final fitDescriptionController =
+        TextEditingController(text: current.detected.fitDescription);
+    final detailController =
+        TextEditingController(text: current.detected.necklineOrWaist);
+    final promptController =
+        TextEditingController(text: current.detected.englishPrompt);
+    final categories = <String>{
+      ...garmentCategoryDetails.keys,
+      current.detected.category,
+    }.toList(growable: false);
+    var category = current.detected.category;
+    var details = <String>{
+      ...?garmentCategoryDetails[category],
+      if (current.detected.detailCategory.isNotEmpty)
+        current.detected.detailCategory,
+    }.toList(growable: false);
+    if (details.isEmpty) details = <String>[category];
+    var detailCategory = details.contains(current.detected.detailCategory)
+        ? current.detected.detailCategory
+        : details.first;
+    var fit = const ['슬림', '기본', '루즈'].contains(current.detected.fit)
+        ? current.detected.fit
+        : '기본';
+    var selectedColor = garmentColorOptions.firstWhere(
+      (option) => option.name == _normalizedColor(current.detected.color),
+      orElse: () => garmentColorOptions.first,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => FractionallySizedBox(
+          heightFactor: .9,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: ChakchakColors.canvas,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                top: 12,
+                right: 20,
+                bottom: 20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: ChakchakColors.borderSubtle,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('AI 분석 결과 수정',
+                            style: ChakchakTypography.section),
+                      ),
+                      IconButton(
+                        tooltip: '닫기',
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const Text('저장 전에 색상과 옷 종류를 직접 바꿀 수 있어요.',
+                      style: TextStyle(
+                          fontFamily: 'Paperlogy',
+                          fontSize: 12,
+                          height: 1.4,
+                          color: Color(0xFF66736E))),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const _GarmentFormLabel(label: '옷 이름'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: nameController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 16),
+                              decoration: _analysisFieldDecoration(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const _GarmentFormLabel(label: '카테고리'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: DropdownButtonFormField<String>(
+                              value: category,
+                              isExpanded: true,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy',
+                                  fontSize: 16,
+                                  color: ChakchakColors.textPrimary),
+                              decoration: _analysisFieldDecoration(),
+                              items: categories
+                                  .map((value) => DropdownMenuItem(
+                                      value: value, child: Text(value)))
+                                  .toList(growable: false),
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setSheetState(() {
+                                  category = value;
+                                  details = <String>{
+                                    ...?garmentCategoryDetails[value],
+                                  }.toList(growable: false);
+                                  if (details.isEmpty)
+                                    details = <String>[value];
+                                  detailCategory = details.first;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 40,
+                            child: DropdownButtonFormField<String>(
+                              value: detailCategory,
+                              isExpanded: true,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy',
+                                  fontSize: 16,
+                                  color: ChakchakColors.textPrimary),
+                              decoration: _analysisFieldDecoration(),
+                              items: details
+                                  .map((value) => DropdownMenuItem(
+                                      value: value, child: Text(value)))
+                                  .toList(growable: false),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setSheetState(() => detailCategory = value);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const _GarmentFormLabel(label: '핏'),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              for (final value in const ['슬림', '기본', '루즈']) ...[
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () =>
+                                        setSheetState(() => fit = value),
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Container(
+                                      height: 40,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: fit == value
+                                            ? ChakchakColors.brandPrimary
+                                            : ChakchakColors.surface,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: fit == value
+                                              ? ChakchakColors.brandPrimary
+                                              : ChakchakColors.borderDefault,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        value,
+                                        style:
+                                            ChakchakTypography.label.copyWith(
+                                          color: fit == value
+                                              ? Colors.white
+                                              : ChakchakColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (value != '루즈') const SizedBox(width: 8),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          const _GarmentFormLabel(label: '색상'),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              for (final option in garmentColorOptions)
+                                _GarmentColorChip(
+                                  option: option,
+                                  selected: selectedColor == option,
+                                  onTap: () => setSheetState(
+                                      () => selectedColor = option),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text('선택: ${selectedColor.name}',
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy',
+                                  fontSize: 12,
+                                  color: Color(0xFF66736E))),
+                          const SizedBox(height: 20),
+                          const _GarmentFormLabel(label: '정확한 색상명'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: preciseColorController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 14),
+                              decoration: _analysisFieldDecoration(
+                                  hintText: '예: Dark Chocolate Brown'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const _GarmentFormLabel(label: '헥사 코드'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: hexController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 14),
+                              decoration:
+                                  _analysisFieldDecoration(hintText: '#4A2C24'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const _GarmentFormLabel(label: '소재·질감'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: materialController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 14),
+                              decoration: _analysisFieldDecoration(
+                                  hintText: '예: Smooth cotton'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const _GarmentFormLabel(label: '핏 상세'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: fitDescriptionController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 14),
+                              decoration: _analysisFieldDecoration(
+                                  hintText: '예: Slim fit'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const _GarmentFormLabel(label: '넥라인·허리 디테일'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: detailController,
+                              style: const TextStyle(
+                                  fontFamily: 'Paperlogy', fontSize: 14),
+                              decoration: _analysisFieldDecoration(
+                                  hintText: '예: Crew neck'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const _GarmentFormLabel(label: '상품컷 영문 프롬프트'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: promptController,
+                            minLines: 3,
+                            maxLines: 5,
+                            style: const TextStyle(
+                                fontFamily: 'Paperlogy',
+                                fontSize: 14,
+                                height: 1.4),
+                            decoration: _analysisFieldDecoration(
+                                hintText: 'A dark brown slim-fit t-shirt...'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ChakchakButton(
+                    label: '수정 내용 적용',
+                    onPressed: () {
+                      final detected = current.detected.copyWith(
+                        name: nameController.text.trim(),
+                        category: category,
+                        detailCategory: detailCategory,
+                        color: selectedColor.name,
+                        fit: fit,
+                        preciseColor: preciseColorController.text.trim(),
+                        colorHex: hexController.text.trim(),
+                        materialTexture: materialController.text.trim(),
+                        fitDescription: fitDescriptionController.text.trim(),
+                        necklineOrWaist: detailController.text.trim(),
+                        englishPrompt: promptController.text.trim(),
+                        clearMatchedGarmentId: true,
+                      );
+                      setState(() {
+                        final updated = [..._drafts];
+                        updated[index] = current.copyWith(
+                          detected: detected,
+                          clearGeneratedImage: true,
+                          generating: true,
+                          clearGenerationError: true,
+                        );
+                        _drafts = updated;
+                      });
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_regenerateDraft(index));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    nameController.dispose();
+    preciseColorController.dispose();
+    hexController.dispose();
+    materialController.dispose();
+    fitDescriptionController.dispose();
+    detailController.dispose();
+    promptController.dispose();
+  }
+
+  Future<void> _regenerateDraft(int index) async {
+    if (index < 0 || index >= _drafts.length) return;
+    final detected = _drafts[index].detected;
+    try {
+      final generated =
+          await _backend.generateGarmentStudioImage(garment: detected);
+      final bytes = base64Decode(generated.imageBase64);
+      if (!mounted || index >= _drafts.length) return;
+      setState(() {
+        final updated = [..._drafts];
+        updated[index] = updated[index].copyWith(
+          generatedImageBytes: bytes,
+          generating: false,
+          clearGenerationError: true,
+        );
+        _drafts = updated;
+      });
+    } catch (error) {
+      if (!mounted || index >= _drafts.length) return;
+      setState(() {
+        final updated = [..._drafts];
+        updated[index] = updated[index].copyWith(
+          clearGeneratedImage: true,
+          generating: false,
+          generationError: _friendlyError(error),
+        );
+        _drafts = updated;
+      });
+    }
+  }
+
+  void _save() {
+    if (_drafts.isEmpty) return;
+    final newGarments = <GarmentItem>[];
+    final wornNames = <String>[];
+    final wornIds = <String>[];
+    for (final draft in _drafts) {
+      final detected = draft.detected;
+      final generatedImage = draft.generatedImageBytes;
+      final sample = generatedImage == null
+          ? garmentSampleForDetectedStyle(
+                category: detected.category,
+                detailCategory: detected.detailCategory,
+                fit: detected.fit.isEmpty ? '기본' : detected.fit,
+              ) ??
+              garmentSampleForDetectedStyle(
+                category: detected.category,
+                detailCategory: detected.detailCategory,
+              )
+          : null;
+      final tintColor = sample == null ? null : _detectedGarmentTint(detected);
+      final garment = GarmentItem(
+        id: _createGarmentId(),
+        name: detected.name.trim().isEmpty
+            ? '${detected.color} ${detected.detailCategory.isEmpty ? detected.category : detected.detailCategory}'
+            : detected.name.trim(),
+        category: detected.category,
+        detailCategory: detected.detailCategory,
+        fit: detected.fit.isEmpty ? '기본' : detected.fit,
+        color: _normalizedColor(detected.color),
+        location: '',
+        tone: _toneFor(detected.color),
+        assetPath: generatedImage == null ? sample?.assetPath : null,
+        imageBytes: generatedImage ??
+            (sample == null ? draft.fallbackCroppedImage : null),
+        tintColor: tintColor,
+        colorizeAsset: tintColor != null,
+        registrationMethod: generatedImage != null
+            ? '착장 사진 AI 분석 · 스튜디오 상품컷'
+            : sample != null
+                ? '착장 사진 AI 분석 · 샘플 상품컷'
+                : '착장 사진 AI 분석 · 원본 영역',
+        lastWornLabel: '오늘 착용',
+      );
+      newGarments.add(garment);
+      wornNames.add(garment.name);
+      wornIds.add(garment.stableId);
+    }
+    Navigator.of(context).pop(OutfitPhotoImportResult(
+      newGarments: newGarments,
+      matchedGarmentNames: const [],
+      wornGarmentNames: wornNames,
+      matchedGarmentIds: const [],
+      wornGarmentIds: wornIds,
+    ));
+  }
+
+  Widget _sourcePicker() => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 190,
+            decoration: BoxDecoration(
+              color: ChakchakColors.brandSubtle,
+              borderRadius: BorderRadius.circular(ChakchakRadii.card),
+              border: Border.all(color: ChakchakColors.borderBrandSubtle),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.checkroom_outlined,
+                    size: 44, color: ChakchakColors.brandPrimary),
+                SizedBox(height: 12),
+                Text('한 장의 사진에서 옷을 나눠드려요',
+                    style: ChakchakTypography.labelStrong),
+                SizedBox(height: 7),
+                Text('전신 또는 착장이 잘 보이는 사진을 선택해주세요.',
+                    style: TextStyle(
+                        fontSize: 12, height: 1.35, color: Color(0xFF64736E))),
+              ],
+            ),
+          ),
+          const SizedBox(height: ChakchakSpacing.md),
+          ChakchakButton(
+            label: '앨범에서 사진 고르기',
+            onPressed: () => _pickAndAnalyze(ImageSource.gallery),
+          ),
+          const SizedBox(height: ChakchakSpacing.sm),
+          ChakchakButton(
+            label: '사진 찍기',
+            kind: ChakchakButtonKind.sub,
+            onPressed: () => _pickAndAnalyze(ImageSource.camera),
+          ),
+        ],
+      );
+
+  Widget _analysisBody() {
+    if (_analyzing) {
+      return Column(children: [
+        if (_sourceImage != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(ChakchakRadii.card),
+            child: SizedBox(
+              height: 220,
+              width: double.infinity,
+              child: Image.memory(_sourceImage!, fit: BoxFit.cover),
+            ),
+          ),
+        const SizedBox(height: 24),
+        const CircularProgressIndicator(),
+        const SizedBox(height: 14),
+        const Text('옷 특징을 분석하고 상품컷을 만들고 있어요',
+            style: ChakchakTypography.labelStrong),
+        const SizedBox(height: 7),
+        const Text('조명과 그림자를 제외하고 각 옷을 스튜디오 컷으로 정리합니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Color(0xFF66736E))),
+      ]);
+    }
+    if (_errorMessage != null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1EE),
+            borderRadius: BorderRadius.circular(ChakchakRadii.control),
+          ),
+          child: Text(_errorMessage!,
+              style: const TextStyle(fontSize: 13, height: 1.45)),
+        ),
+        const SizedBox(height: 12),
+        ChakchakButton(
+          label: '다른 사진 선택하기',
+          kind: ChakchakButtonKind.sub,
+          onPressed: () => setState(() {
+            _sourceImage = null;
+            _errorMessage = null;
+          }),
+        ),
+      ]);
+    }
+    return _reviewBody();
+  }
+
+  Widget _reviewBody() {
+    final counts = <String, int>{};
+    for (final draft in _drafts) {
+      counts.update(draft.detected.category, (value) => value + 1,
+          ifAbsent: () => 1);
+    }
+    final countLabel = counts.entries
+        .map((entry) => '${entry.key} ${entry.value}건 발견')
+        .join('  ·  ');
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(countLabel, style: ChakchakTypography.bodyStrong),
+      const SizedBox(height: 6),
+      const Text('AI 분석 결과를 확인하고 필요한 항목은 수정해주세요.',
+          style: TextStyle(fontSize: 12, color: Color(0xFF66736E))),
+      const SizedBox(height: 16),
+      for (var index = 0; index < _drafts.length; index++) ...[
+        _reviewDraftCard(index),
+        const SizedBox(height: 8),
+      ],
+      const SizedBox(height: 8),
+      ChakchakButton(
+        label: _drafts.any((draft) => draft.generating)
+            ? '상품컷 만드는 중'
+            : '옷장과 착용 기록에 저장',
+        onPressed: _drafts.any((draft) => draft.generating) ? null : _save,
+      ),
+      const SizedBox(height: 8),
+      ChakchakButton(
+        label: '다시 등록하기',
+        kind: ChakchakButtonKind.sub,
+        onPressed: () => setState(() {
+          _sourceImage = null;
+          _drafts = const [];
+        }),
+      ),
+    ]);
+  }
+
+  Widget _reviewDraftCard(int index) {
+    final draft = _drafts[index];
+    final hasMatchingSample = garmentSampleForDetectedStyle(
+              category: draft.detected.category,
+              detailCategory: draft.detected.detailCategory,
+              fit: draft.detected.fit.isEmpty ? '기본' : draft.detected.fit,
+            ) !=
+            null ||
+        garmentSampleForDetectedStyle(
+              category: draft.detected.category,
+              detailCategory: draft.detected.detailCategory,
+            ) !=
+            null;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(ChakchakRadii.control),
+        border: Border.all(color: ChakchakColors.borderSubtle),
+      ),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 76,
+            height: 76,
+            color: _toneFor(draft.detected.color),
+            child: _draftPreview(draft),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      draft.detected.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: ChakchakTypography.labelStrong,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    key: ValueKey('edit-ai-garment-$index'),
+                    onTap: () => _editDraft(index),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const SizedBox(
+                      height: 40,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined,
+                                size: 17, color: ChakchakColors.brandPrimary),
+                            SizedBox(width: 4),
+                            Text('수정',
+                                style: TextStyle(
+                                    fontFamily: 'Paperlogy',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: ChakchakColors.brandPrimary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${draft.detected.category}${draft.detected.detailCategory.isEmpty ? '' : ' · ${draft.detected.detailCategory}'} · ${draft.detected.preciseColor.isEmpty ? _normalizedColor(draft.detected.color) : draft.detected.preciseColor} · ${draft.detected.fit}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF66736E)),
+              ),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: draft.generatedImageBytes != null
+                        ? ChakchakColors.brandSubtle
+                        : const Color(0xFFFFF2D8),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    draft.generating
+                        ? '상품컷 생성 중'
+                        : draft.generatedImageBytes != null
+                            ? 'AI 스튜디오 상품컷'
+                            : hasMatchingSample
+                                ? '원본 확인 · 샘플 저장'
+                                : '원본 확인 이미지',
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (!draft.generating && draft.generationError != null)
+                  InkWell(
+                    onTap: () => _regenerateDraft(index),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: ChakchakColors.brandPrimary),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text('상품컷 다시 만들기',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: ChakchakColors.brandPrimary)),
+                    ),
+                  ),
+              ]),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _draftPreview(_OutfitGarmentDraft draft) {
+    final preview = draft.generatedImageBytes ?? draft.fallbackCroppedImage;
+    return Stack(fit: StackFit.expand, children: [
+      Image.memory(preview, fit: BoxFit.contain),
+      if (draft.generating)
+        Container(
+          color: Colors.white.withValues(alpha: .62),
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) => FractionallySizedBox(
+        heightFactor: .94,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('착장 사진 등록', style: ChakchakTypography.section),
+                        SizedBox(height: 7),
+                        Text('사진 속 옷을 자동으로 나눠 옷장에 등록해요.',
+                            style: TextStyle(
+                                fontSize: 13, color: Color(0xFF66736E))),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ]),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _sourceImage == null
+                        ? _sourcePicker()
+                        : _analysisBody(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+Color _detectedGarmentTint(DetectedGarment detected) {
+  final compactHex = detected.colorHex.trim().replaceFirst('#', '');
+  if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(compactHex)) {
+    return Color(0xFF000000 | int.parse(compactHex, radix: 16));
+  }
+  return garmentTintForAnalysisColor(
+    detected.preciseColor.isEmpty ? detected.color : detected.preciseColor,
+  );
+}
+
+Future<Uint8List> _cropNormalizedImage(
+    Uint8List sourceBytes, NormalizedImageBox box) async {
+  final codec = await ui.instantiateImageCodec(sourceBytes);
+  final frame = await codec.getNextFrame();
+  final sourceImage = frame.image;
+  try {
+    double clamp(double value) => value.clamp(0.0, 1.0).toDouble();
+    final left = clamp(box.x - .025);
+    final top = clamp(box.y - .025);
+    final right = clamp(box.x + box.width + .025);
+    final bottom = clamp(box.y + box.height + .025);
+    if (right <= left || bottom <= top) return sourceBytes;
+
+    final sourceRect = ui.Rect.fromLTRB(
+      left * sourceImage.width,
+      top * sourceImage.height,
+      right * sourceImage.width,
+      bottom * sourceImage.height,
+    );
+    final scale = min(1.0, 720 / max(sourceRect.width, sourceRect.height));
+    final outputWidth = max(1, (sourceRect.width * scale).round());
+    final outputHeight = max(1, (sourceRect.height * scale).round());
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawImageRect(
+      sourceImage,
+      sourceRect,
+      ui.Rect.fromLTWH(0, 0, outputWidth.toDouble(), outputHeight.toDouble()),
+      ui.Paint()..filterQuality = ui.FilterQuality.high,
+    );
+    final picture = recorder.endRecording();
+    final rendered = await picture.toImage(outputWidth, outputHeight);
+    picture.dispose();
+    try {
+      final data = await rendered.toByteData(format: ui.ImageByteFormat.png);
+      return data?.buffer.asUint8List() ?? sourceBytes;
+    } finally {
+      rendered.dispose();
+    }
+  } finally {
+    sourceImage.dispose();
+    codec.dispose();
+  }
+}
+
 class WardrobeScreen extends StatefulWidget {
   const WardrobeScreen(
       {super.key,
       required this.garments,
       required this.onAdd,
       required this.onUpdate,
+      required this.onDelete,
+      required this.onImportOutfitPhoto,
       this.onAskMate,
       required this.outfitSaved,
       this.savedOutfits = const []});
   final List<GarmentItem> garments;
   final VoidCallback onAdd;
+  final VoidCallback onImportOutfitPhoto;
   final void Function(GarmentItem previous, GarmentItem updated) onUpdate;
+  final ValueChanged<GarmentItem> onDelete;
   final ValueChanged<GarmentItem>? onAskMate;
   final bool outfitSaved;
   final List<SavedOutfitRecord> savedOutfits;
@@ -4123,6 +5678,56 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                     ),
                   )),
                 ]),
+              ),
+              const SizedBox(height: 12),
+              Semantics(
+                button: true,
+                label: '착장 사진으로 옷 한 번에 등록',
+                child: GestureDetector(
+                  onTap: widget.onImportOutfitPhoto,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    key: const ValueKey('wardrobe-outfit-photo-import'),
+                    constraints: const BoxConstraints(minHeight: 72),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: ChakchakSpacing.controlHorizontal,
+                      vertical: ChakchakSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ChakchakColors.brandPrimary,
+                      borderRadius:
+                          BorderRadius.circular(ChakchakRadii.control),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.add_a_photo_outlined,
+                          size: 22, color: Colors.white),
+                      SizedBox(width: ChakchakSpacing.iconGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('착장 사진으로 한 번에 등록',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    height: 1,
+                                    fontWeight: FontWeight.w600)),
+                            SizedBox(height: 7),
+                            Text('사진 속 옷을 나눠 옷장과 착용 기록에 저장해요.',
+                                style: TextStyle(
+                                    color: Color(0xE6FFFFFF),
+                                    fontSize: 12,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w400)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 22, color: Colors.white),
+                    ]),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               GestureDetector(
@@ -4221,7 +5826,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                         ),
                         child: Text(value,
                             style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 14,
                                 height: 1,
                                 fontWeight: FontWeight.w400,
                                 color:
@@ -4252,6 +5857,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                         onChanged: (updated) {
                           widget.onUpdate(item, updated);
                         },
+                        onDelete: widget.onDelete,
                       ),
                     );
                   },
@@ -4277,14 +5883,14 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                 Text('＋',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 14,
                         height: 1,
                         fontWeight: FontWeight.w500)),
                 SizedBox(width: ChakchakSpacing.iconGap),
                 Text('새 옷 등록',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 14,
                         height: 1,
                         fontWeight: FontWeight.w500)),
               ]),
@@ -4318,11 +5924,29 @@ class _WardrobeItem extends StatelessWidget {
               SizedBox(
                   height: 120,
                   width: double.infinity,
-                  child: GarmentVisual(
-                      item: item,
-                      size: double.infinity,
-                      fillUploadedPhoto: true,
-                      radius: 14)),
+                  child: Stack(children: [
+                    Positioned.fill(
+                      child: GarmentVisual(
+                          item: item,
+                          size: double.infinity,
+                          fillUploadedPhoto: true,
+                          radius: 14),
+                    ),
+                    if (item.isFavorite)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                              color: Colors.white, shape: BoxShape.circle),
+                          child: const Icon(Icons.favorite_rounded,
+                              size: 17, color: AppColors.mintDark),
+                        ),
+                      ),
+                  ])),
               const SizedBox(height: 8),
               Text(item.name,
                   maxLines: 1,
@@ -4351,6 +5975,7 @@ Future<void> showGarmentDetailSheet(
   required GarmentItem item,
   ValueChanged<GarmentItem>? onChanged,
   ValueChanged<GarmentItem>? onAskMate,
+  ValueChanged<GarmentItem>? onDelete,
 }) =>
     showModalBottomSheet<void>(
       context: context,
@@ -4369,6 +5994,7 @@ Future<void> showGarmentDetailSheet(
           item: item,
           onChanged: onChanged,
           onAskMate: onAskMate,
+          onDelete: onDelete,
           asBottomSheet: true,
         ),
       ),
@@ -4380,11 +6006,13 @@ class GarmentDetailScreen extends StatefulWidget {
     required this.item,
     this.onChanged,
     this.onAskMate,
+    this.onDelete,
     this.asBottomSheet = false,
   });
   final GarmentItem item;
   final ValueChanged<GarmentItem>? onChanged;
   final ValueChanged<GarmentItem>? onAskMate;
+  final ValueChanged<GarmentItem>? onDelete;
   final bool asBottomSheet;
 
   @override
@@ -4412,6 +6040,44 @@ class _GarmentDetailScreenState extends State<GarmentDetailScreen> {
     if (updated == null || !mounted) return;
     setState(() => item = updated);
     widget.onChanged?.call(updated);
+  }
+
+  void _toggleFavorite() {
+    final updated = item.copyWith(isFavorite: !item.isFavorite);
+    setState(() => item = updated);
+    widget.onChanged?.call(updated);
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.paper,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ChakchakRadii.card),
+        ),
+        title: const Text('이 옷을 삭제할까요?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        content: const Text('삭제한 옷은 내 옷장에서 다시 볼 수 없어요.',
+            style: TextStyle(fontSize: 13, height: 1.45)),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소', style: TextStyle(fontSize: 14)),
+          ),
+          TextButton(
+            key: const ValueKey('garment-delete-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('삭제',
+                style: TextStyle(fontSize: 14, color: Color(0xFFB45142))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    widget.onDelete?.call(item);
+    Navigator.of(context).maybePop();
   }
 
   String _dateLabel(DateTime? date) {
@@ -4450,6 +6116,19 @@ class _GarmentDetailScreenState extends State<GarmentDetailScreen> {
                       ),
                     ),
                     const Spacer(),
+                    IconButton(
+                      key: const ValueKey('garment-favorite-toggle'),
+                      onPressed: _toggleFavorite,
+                      tooltip: item.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
+                      icon: Icon(
+                        item.isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: item.isFavorite
+                            ? AppColors.mintDark
+                            : AppColors.muted,
+                      ),
+                    ),
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       tooltip: widget.asBottomSheet ? '닫기' : '뒤로',
@@ -4564,20 +6243,44 @@ class _GarmentDetailScreenState extends State<GarmentDetailScreen> {
                   kind: ChakchakButtonKind.sub,
                   onPressed: _edit,
                 ),
-                const SizedBox(height: 8),
-                ChakchakButton(
-                  label: '이 옷으로 코디 물어보기',
-                  onPressed: () {
-                    final onAskMate = widget.onAskMate;
-                    if (onAskMate != null) {
+                if (widget.onAskMate != null) ...[
+                  const SizedBox(height: 8),
+                  ChakchakButton(
+                    label: '이 옷으로 코디 물어보기',
+                    onPressed: () {
                       Navigator.of(context).pop();
-                      onAskMate(item);
-                      return;
-                    }
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => MateChatScreen(pinned: item)));
-                  },
-                ),
+                      widget.onAskMate!(item);
+                    },
+                  ),
+                ],
+                if (widget.onDelete != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    button: true,
+                    label: '옷 삭제',
+                    child: GestureDetector(
+                      onTap: _delete,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        key: const ValueKey('garment-delete-button'),
+                        width: double.infinity,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFDCA79E)),
+                          borderRadius:
+                              BorderRadius.circular(ChakchakRadii.control),
+                        ),
+                        child: const Text('옷 삭제',
+                            style: TextStyle(
+                                color: Color(0xFFB45142),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           );
@@ -4648,11 +6351,13 @@ class SavedOutfitsScreen extends StatefulWidget {
     required this.hasSavedOutfit,
     this.records = const [],
     this.garments = const [],
+    this.embedded = false,
   });
 
   final bool hasSavedOutfit;
   final List<SavedOutfitRecord> records;
   final List<GarmentItem> garments;
+  final bool embedded;
 
   @override
   State<SavedOutfitsScreen> createState() => _SavedOutfitsScreenState();
@@ -4692,18 +6397,6 @@ class _SavedOutfitsScreenState extends State<SavedOutfitsScreen> {
     return filtered;
   }
 
-  GarmentItem? _resolveGarment(String name) {
-    final candidates = <GarmentItem>[
-      ...widget.garments,
-      ...starterBasicGarments,
-      ...sampleGarments,
-    ];
-    for (final item in candidates) {
-      if (item.name == name) return item;
-    }
-    return null;
-  }
-
   Widget _garmentTile(GarmentItem item, {double width = 112}) => SizedBox(
         key: ValueKey('saved-outfit-garment-${item.name}'),
         width: width,
@@ -4735,10 +6428,11 @@ class _SavedOutfitsScreenState extends State<SavedOutfitsScreen> {
   }
 
   Widget _recordCard(SavedOutfitRecord record) {
-    final items = record.garmentNames
-        .map(_resolveGarment)
-        .whereType<GarmentItem>()
-        .toList(growable: false);
+    final items = _resolveSavedOutfitGarments(record, [
+      ...starterBasicGarments,
+      ...sampleGarments,
+      ...widget.garments,
+    ]);
     return Container(
       key: ValueKey('saved-outfit-${record.date.toIso8601String()}'),
       padding: const EdgeInsets.fromLTRB(16, 17, 16, 18),
@@ -4785,7 +6479,8 @@ class _SavedOutfitsScreenState extends State<SavedOutfitsScreen> {
           backgroundColor: AppColors.paper,
           surfaceTintColor: AppColors.paper,
           centerTitle: true,
-          title: const Text('오늘의 픽')),
+          automaticallyImplyLeading: !widget.embedded,
+          title: Text(widget.embedded ? '착장 기록' : '오늘의 픽')),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
         child: Column(
@@ -4972,14 +6667,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   }
 
   List<GarmentItem> _recordGarments(SavedOutfitRecord record) {
-    final byName = {
-      for (final item in starterBasicGarments) item.name: item,
-      for (final item in widget.garments) item.name: item,
-    };
-    return record.garmentNames
-        .map((name) => byName[name])
-        .whereType<GarmentItem>()
-        .toList(growable: false);
+    return _resolveSavedOutfitGarments(record, [
+      ...starterBasicGarments,
+      ...widget.garments,
+    ]);
   }
 
   @override
@@ -5350,6 +7041,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
       existingAssetPath = null;
       category = sample.category;
       detailCategory = sample.detailCategory;
+      garmentFit = sample.fit;
       if (nameController.text.trim().isEmpty) {
         nameController.text = sample.name;
       }
@@ -5430,6 +7122,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
     }
     if (!(formKey.currentState?.validate() ?? false)) return;
     Navigator.of(context).pop(GarmentItem(
+      id: widget.initialItem?.stableId ?? _createGarmentId(),
       name: nameController.text.trim(),
       category: category,
       detailCategory: detailCategory,
@@ -5450,6 +7143,7 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
           ? selectedColor!.color
           : null,
       colorizeAsset: selectedSample != null || existingAssetColorized,
+      isFavorite: widget.initialItem?.isFavorite ?? false,
       purchaseDate: purchaseDate,
       registrationMethod: photoBytes != null
           ? '사진 등록'
@@ -5502,6 +7196,9 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                           photoBytes = null;
                           existingAssetPath = null;
                           selectedSample = _sampleFor(category, detailCategory);
+                          if (selectedSample != null) {
+                            garmentFit = selectedSample!.fit;
+                          }
                         }),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -5640,6 +7337,9 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                             existingAssetColorized = false;
                             selectedSample =
                                 _sampleFor(category, detailCategory);
+                            if (selectedSample != null) {
+                              garmentFit = selectedSample!.fit;
+                            }
                           }
                         });
                       },
@@ -5666,6 +7366,9 @@ class _AddGarmentScreenState extends State<AddGarmentScreen> {
                             existingAssetColorized = false;
                             selectedSample =
                                 _sampleFor(category, detailCategory);
+                            if (selectedSample != null) {
+                              garmentFit = selectedSample!.fit;
+                            }
                           }
                         });
                       },
@@ -6819,8 +8522,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String displayName;
   late String email;
   Uint8List? profilePhotoBytes;
-  late int height;
-  late int weight;
+  int? height;
+  int? weight;
   late String gender;
   String region = '서울';
   bool calendarConnected = true;
@@ -6830,9 +8533,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    height = widget.initialHeight ?? 165;
-    weight = widget.initialWeight ?? 55;
-    gender = widget.initialGender == '남' ? '남' : '여';
+    height = widget.initialHeight;
+    weight = widget.initialWeight;
+    gender = switch (widget.initialGender) {
+      '남' => '남',
+      '여' => '여',
+      _ => '선택 안 함',
+    };
     email = widget.accountEmail?.trim() ?? '';
     final googleName = widget.accountDisplayName?.trim() ?? '';
     displayName = googleName.isNotEmpty
@@ -7046,11 +8753,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
   Future<void> _editBodyProfile() async {
-    final heightController = TextEditingController(text: '$height');
-    final weightController = TextEditingController(text: '$weight');
+    final heightController =
+        TextEditingController(text: height == null ? '' : '$height');
+    final weightController =
+        TextEditingController(text: weight == null ? '' : '$weight');
     var temporaryGender = gender;
     final result =
-        await showModalBottomSheet<({int height, int weight, String gender})>(
+        await showModalBottomSheet<({int? height, int? weight, String gender})>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -7098,7 +8807,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text('성별', style: ChakchakTypography.bodyStrong),
                       const SizedBox(height: 8),
                       Row(children: [
-                        for (final value in ['남', '여']) ...[
+                        for (final value in ['남', '여', '선택 안 함']) ...[
                           Expanded(
                             child: ChoiceChip(
                               label: SizedBox(
@@ -7110,22 +8819,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   setSheetState(() => temporaryGender = value),
                             ),
                           ),
-                          if (value == '남') const SizedBox(width: 8),
+                          if (value != '선택 안 함') const SizedBox(width: 8),
                         ],
                       ]),
                       const SizedBox(height: 20),
                       FilledButton(
                         onPressed: () {
-                          final nextHeight =
-                              int.tryParse(heightController.text);
-                          final nextWeight =
-                              int.tryParse(weightController.text);
-                          if (nextHeight == null ||
-                              nextWeight == null ||
-                              nextHeight < 120 ||
-                              nextHeight > 220 ||
-                              nextWeight < 30 ||
-                              nextWeight > 200) return;
+                          final rawHeight = heightController.text.trim();
+                          final rawWeight = weightController.text.trim();
+                          final nextHeight = rawHeight.isEmpty
+                              ? null
+                              : int.tryParse(rawHeight);
+                          final nextWeight = rawWeight.isEmpty
+                              ? null
+                              : int.tryParse(rawWeight);
+                          if ((rawHeight.isNotEmpty &&
+                                  (nextHeight == null ||
+                                      nextHeight < 120 ||
+                                      nextHeight > 220)) ||
+                              (rawWeight.isNotEmpty &&
+                                  (nextWeight == null ||
+                                      nextWeight < 30 ||
+                                      nextWeight > 200))) return;
                           Navigator.of(context).pop((
                             height: nextHeight,
                             weight: nextWeight,
@@ -7421,10 +9136,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _BodyStat(label: '키', value: '$height cm')),
+                    Expanded(
+                        child: _BodyStat(
+                            label: '키',
+                            value: height == null ? '미입력' : '$height cm')),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _BodyStat(label: '몸무게', value: '$weight kg')),
+                        child: _BodyStat(
+                            label: '몸무게',
+                            value: weight == null ? '미입력' : '$weight kg')),
                     const SizedBox(width: 8),
                     Expanded(child: _BodyStat(label: '성별', value: gender))
                   ]),
@@ -7889,7 +9609,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                                     const SizedBox(width: 8),
                                     Text(_formatDate(selectedDate),
                                         style: const TextStyle(
-                                            fontSize: 15,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w800)),
                                   ]),
                             ),
@@ -8055,7 +9775,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                         borderRadius: BorderRadius.circular(14))),
                 child: const Text('일정 저장하기',
                     style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w800))),
           ]),
         ),
       ),
@@ -8289,42 +10009,89 @@ class _ConsentRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final VoidCallback onOpen;
   @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox.square(
-              dimension: AppA11y.touchTarget,
-              child: Checkbox(
-                  value: value,
-                  onChanged: (next) => onChanged(next ?? false),
-                  activeColor: AppColors.mintDark)),
-          Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Text('[필수] ',
-                    style: TextStyle(
-                        fontSize: AppA11y.metadataSize,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.mintDark)),
-                TextButton(
-                    onPressed: onOpen,
-                    style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        minimumSize: const Size(
-                            AppA11y.touchTarget, AppA11y.touchTarget)),
-                    child: Text(label,
-                        style: const TextStyle(
-                            fontSize: AppA11y.metadataSize,
-                            decoration: TextDecoration.underline))),
-                const Text('에 동의합니다.',
-                    style: TextStyle(
-                        fontSize: AppA11y.metadataSize,
-                        color: AppColors.muted)),
-              ],
+  Widget build(BuildContext context) => SizedBox(
+        height: 28,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Semantics(
+              checked: value,
+              label: '$label 동의',
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  key: ValueKey('consent-checkbox-$label'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onChanged(!value),
+                  child: SizedBox.square(
+                    dimension: 28,
+                    child: Center(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: value ? AppColors.mintDark : Colors.white,
+                          border: Border.all(
+                            color: value ? AppColors.mintDark : AppColors.line,
+                          ),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: value
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 13,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 5),
+            const Text(
+              '[필수]',
+              style: TextStyle(
+                fontSize: AppA11y.metadataSize,
+                fontWeight: FontWeight.w800,
+                color: AppColors.mintDark,
+              ),
+            ),
+            const SizedBox(width: 4),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onOpen,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: AppA11y.metadataSize,
+                      color: AppColors.mintDark,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Expanded(
+              child: Text(
+                '에 동의합니다.',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppA11y.metadataSize,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
 }
 
@@ -8355,7 +10122,17 @@ class MateAvatar extends StatelessWidget {
 }
 
 const garmentCategoryDetails = <String, List<String>>{
-  '상의': ['반팔티', '긴팔티', '민소매', '셔츠', '데님 셔츠', '후드티', '후드 집업'],
+  '상의': [
+    '반팔티',
+    '크롭 반팔티',
+    '긴팔티',
+    '민소매',
+    '크롭 민소매',
+    '셔츠',
+    '데님 셔츠',
+    '후드티',
+    '후드 집업'
+  ],
   '하의': [
     '스트레이트 팬츠',
     '와이드 슬랙스',
@@ -8363,7 +10140,11 @@ const garmentCategoryDetails = <String, List<String>>{
     '카고 팬츠',
     '조거 팬츠',
     '기본 반바지',
-    '버뮤다 팬츠'
+    '버뮤다 팬츠',
+    'H라인 미디 스커트',
+    'H라인 미니 스커트',
+    'A라인 미니 스커트',
+    '플레어 미디 스커트'
   ],
   '아우터': [
     '블레이저',
@@ -8411,12 +10192,14 @@ class GarmentSample {
     required this.category,
     required this.detailCategory,
     required this.assetPath,
+    this.fit = '기본',
   });
 
   final String name;
   final String category;
   final String detailCategory;
   final String assetPath;
+  final String fit;
 }
 
 const garmentSamples = <GarmentSample>[
@@ -8426,6 +10209,26 @@ const garmentSamples = <GarmentSample>[
       detailCategory: '반팔티',
       assetPath:
           'assets/garment_samples/unisex_tshirt_basic_shortsleeve.png.png'),
+  GarmentSample(
+      name: '여성 슬림 반팔티',
+      category: '상의',
+      detailCategory: '반팔티',
+      fit: '슬림',
+      assetPath: 'assets/garment_samples/female_tshirt_slim_shortsleeve.png'),
+  GarmentSample(
+      name: '오버사이즈 반팔티',
+      category: '상의',
+      detailCategory: '반팔티',
+      fit: '루즈',
+      assetPath:
+          'assets/garment_samples/unisex_tshirt_oversized_shortsleeve.png'),
+  GarmentSample(
+      name: '여성 박시 크롭 반팔티',
+      category: '상의',
+      detailCategory: '크롭 반팔티',
+      fit: '루즈',
+      assetPath:
+          'assets/garment_samples/female_tshirt_boxy_cropped_shortsleeve.png'),
   GarmentSample(
       name: '베이직 긴팔티',
       category: '상의',
@@ -8438,6 +10241,13 @@ const garmentSamples = <GarmentSample>[
       detailCategory: '민소매',
       assetPath:
           'assets/garment_samples/unisex_tanktop_basic_sleeveless.png.png'),
+  GarmentSample(
+      name: '여성 슬림 크롭 민소매',
+      category: '상의',
+      detailCategory: '크롭 민소매',
+      fit: '슬림',
+      assetPath:
+          'assets/garment_samples/female_tanktop_slim_cropped_sleeveless.png'),
   GarmentSample(
       name: '베이직 셔츠',
       category: '상의',
@@ -8494,6 +10304,26 @@ const garmentSamples = <GarmentSample>[
       category: '하의',
       detailCategory: '버뮤다 팬츠',
       assetPath: 'assets/garment_samples/unisex_shorts_bermuda.png'),
+  GarmentSample(
+      name: 'H라인 미디 스커트',
+      category: '하의',
+      detailCategory: 'H라인 미디 스커트',
+      assetPath: 'assets/garment_samples/female_skirt_hline_midi.png'),
+  GarmentSample(
+      name: 'H라인 미니 스커트',
+      category: '하의',
+      detailCategory: 'H라인 미니 스커트',
+      assetPath: 'assets/garment_samples/female_skirt_hline_mini.png'),
+  GarmentSample(
+      name: 'A라인 미니 스커트',
+      category: '하의',
+      detailCategory: 'A라인 미니 스커트',
+      assetPath: 'assets/garment_samples/female_skirt_aline_mini.png'),
+  GarmentSample(
+      name: '플레어 미디 스커트',
+      category: '하의',
+      detailCategory: '플레어 미디 스커트',
+      assetPath: 'assets/garment_samples/female_skirt_flared_midi.png'),
   GarmentSample(
       name: '싱글 블레이저',
       category: '아우터',
@@ -8577,6 +10407,146 @@ const garmentSamples = <GarmentSample>[
       assetPath: 'assets/garment_samples/unisex_shoes_sneakers_lowtop.png'),
 ];
 
+GarmentSample? garmentSampleForDetectedStyle({
+  required String category,
+  required String detailCategory,
+  String fit = '기본',
+}) {
+  final compactDetail = detailCategory.replaceAll(' ', '').toLowerCase();
+  final normalizedDetail = switch (compactDetail) {
+    '티셔츠' || '반팔티셔츠' || '반팔' => '반팔티',
+    '크롭티셔츠' || '크롭반팔티셔츠' || '크롭반팔' => '크롭 반팔티',
+    '긴팔티셔츠' || '긴팔' => '긴팔티',
+    '탱크톱' || '탱크탑' || '슬리브리스' => '민소매',
+    '크롭탱크톱' ||
+    '크롭탱크탑' ||
+    '크롭슬리브리스' ||
+    '민소매크롭티' ||
+    '크롭민소매티' ||
+    '크롭민소매' =>
+      '크롭 민소매',
+    '청셔츠' => '데님 셔츠',
+    '후드집업' || '집업후드' => '후드 집업',
+    '반바지' || '쇼츠' => '기본 반바지',
+    '슬랙스' || '와이드팬츠' => '와이드 슬랙스',
+    '청바지' || '데님팬츠' => '스트레이트 데님',
+    '스커트' => 'H라인 미디 스커트',
+    'h라인미디스커트' || '에이치라인미디스커트' => 'H라인 미디 스커트',
+    'h라인미니스커트' || '에이치라인미니스커트' => 'H라인 미니 스커트',
+    'a라인미니스커트' || '에이라인미니스커트' => 'A라인 미니 스커트',
+    '플레어미디스커트' => '플레어 미디 스커트',
+    '패딩베스트' || '패딩조끼' => '패딩 조끼',
+    '트렌치코트' || '롱트렌치코트' => '롱 트렌치',
+    '윈드브레이커' => '바람막이',
+    '미디원피스' || '미니원피스' || '롱원피스' => 'A라인 미디 원피스',
+    '운동화' || '스니커즈' => '로우탑 스니커즈',
+    _ => detailCategory.trim(),
+  };
+
+  final detailMatches = garmentSamples
+      .where((sample) =>
+          sample.category == category &&
+          sample.detailCategory == normalizedDetail)
+      .toList(growable: false);
+  for (final sample in detailMatches) {
+    if (sample.fit == fit) return sample;
+  }
+  // 크롭 민소매는 전용 샘플이 하나뿐이므로 AI가 핏을 기본으로 분류해도
+  // 빈 이미지 대신 해당 샘플을 보여준다. 그 밖의 핏 불일치는 원본 크롭을 쓴다.
+  if (normalizedDetail == '크롭 민소매' && detailMatches.isNotEmpty) {
+    return detailMatches.first;
+  }
+  return null;
+}
+
+bool _isSleevelessGarment(GarmentItem item) {
+  final descriptor =
+      '${item.name} ${item.detailCategory}'.replaceAll(' ', '').toLowerCase();
+  return RegExp(r'민소매|나시|탱크톱|탱크탑|슬리브리스').hasMatch(descriptor);
+}
+
+/// 이전 버전에서 이미지가 비어 저장된 옷도 현재 샘플 목록으로 복구한다.
+/// 특히 슬림 민소매는 사용자가 제공한 여성용 탱크탑을 우선 사용한다.
+GarmentSample? garmentSampleForDisplay(GarmentItem item) {
+  if (_isSleevelessGarment(item)) {
+    final wantsCropped = '${item.name} ${item.detailCategory}'
+        .replaceAll(' ', '')
+        .contains('크롭');
+    final preferredDetail = wantsCropped || item.fit == '슬림' ? '크롭 민소매' : '민소매';
+    final preferred = garmentSamples.where((sample) =>
+        sample.category == '상의' && sample.detailCategory == preferredDetail);
+    if (preferred.isNotEmpty) return preferred.first;
+  }
+
+  final exact = garmentSampleForDetectedStyle(
+    category: item.category,
+    detailCategory: item.detailCategory,
+    fit: item.fit,
+  );
+  if (exact != null) return exact;
+  return garmentSampleForDetectedStyle(
+    category: item.category,
+    detailCategory: item.detailCategory,
+  );
+}
+
+Color garmentTintForAnalysisColor(String value) {
+  final compact = value.replaceAll(' ', '').toLowerCase();
+  if (compact.contains('아이보리') || compact.contains('크림')) {
+    return const Color(0xFFF2E8D3);
+  }
+  if (compact.contains('화이트') ||
+      compact.contains('white') ||
+      compact.contains('흰')) {
+    return const Color(0xFFF6F5F1);
+  }
+  if (compact.contains('블랙') ||
+      compact.contains('black') ||
+      compact.contains('검정')) {
+    return const Color(0xFF25292C);
+  }
+  if (compact.contains('네이비') || compact.contains('navy')) {
+    return const Color(0xFF344A68);
+  }
+  if (compact.contains('데님')) return const Color(0xFF739BC2);
+  if (compact.contains('블루') || compact.contains('blue')) {
+    return const Color(0xFF739BC2);
+  }
+  if (compact.contains('그레이') ||
+      compact.contains('gray') ||
+      compact.contains('grey') ||
+      compact.contains('회색')) {
+    return const Color(0xFF9A9EA1);
+  }
+  if (compact.contains('베이지') || compact.contains('beige')) {
+    return const Color(0xFFD8BE98);
+  }
+  if (compact.contains('브라운') || compact.contains('brown')) {
+    return const Color(0xFF8B6247);
+  }
+  if (compact.contains('카키')) return const Color(0xFF817B55);
+  if (compact.contains('그린') || compact.contains('green')) {
+    return const Color(0xFF668E6D);
+  }
+  if (compact.contains('레드') || compact.contains('red')) {
+    return const Color(0xFFC94C51);
+  }
+  if (compact.contains('핑크') || compact.contains('pink')) {
+    return const Color(0xFFE7A8B5);
+  }
+  if (compact.contains('옐로') ||
+      compact.contains('yellow') ||
+      compact.contains('노랑')) {
+    return const Color(0xFFD6AE47);
+  }
+  if (compact.contains('퍼플') ||
+      compact.contains('purple') ||
+      compact.contains('보라')) {
+    return const Color(0xFF8C70A1);
+  }
+  return const Color(0xFF7D8582);
+}
+
 class ColorizedGarmentAsset extends StatelessWidget {
   const ColorizedGarmentAsset({
     super.key,
@@ -8628,9 +10598,36 @@ class ColorizedGarmentAsset extends StatelessWidget {
   }
 }
 
+String _createGarmentId() {
+  final timestamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  final entropy = Random.secure().nextInt(0x7fffffff).toRadixString(36);
+  return 'garment_${timestamp}_$entropy';
+}
+
+String _legacyGarmentId(GarmentItem item) {
+  var hash = 0x811c9dc5;
+  void addUnits(Iterable<int> units) {
+    for (final unit in units) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    hash ^= 0xff;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+
+  addUnits(item.name.codeUnits);
+  addUnits(item.category.codeUnits);
+  addUnits(item.detailCategory.codeUnits);
+  addUnits(item.color.codeUnits);
+  addUnits((item.assetPath ?? '').codeUnits);
+  if (item.imageBytes case final bytes?) addUnits(bytes);
+  return 'legacy_${hash.toRadixString(16).padLeft(8, '0')}';
+}
+
 class GarmentItem {
   const GarmentItem(
-      {required this.name,
+      {this.id,
+      required this.name,
       required this.category,
       required this.color,
       required this.location,
@@ -8641,9 +10638,11 @@ class GarmentItem {
       this.imageBytes,
       this.tintColor,
       this.colorizeAsset = false,
+      this.isFavorite = false,
       this.purchaseDate,
       this.registrationMethod = '기본 옷장',
       this.lastWornLabel = '미기록'});
+  final String? id;
   final String name;
   final String category;
   final String detailCategory;
@@ -8655,9 +10654,112 @@ class GarmentItem {
   final Uint8List? imageBytes;
   final Color? tintColor;
   final bool colorizeAsset;
+  final bool isFavorite;
   final DateTime? purchaseDate;
   final String registrationMethod;
   final String lastWornLabel;
+
+  String get stableId {
+    final storedId = id?.trim();
+    return storedId == null || storedId.isEmpty
+        ? _legacyGarmentId(this)
+        : storedId;
+  }
+
+  GarmentItem ensureStableId() =>
+      id == stableId ? this : copyWith(id: stableId);
+
+  Map<String, dynamic> toJson() => {
+        'id': stableId,
+        'name': name,
+        'category': category,
+        'detailCategory': detailCategory,
+        'fit': fit,
+        'color': color,
+        'location': location,
+        'tone': tone.toARGB32(),
+        'assetPath': assetPath,
+        'imageBytes': imageBytes == null ? null : base64Encode(imageBytes!),
+        'tintColor': tintColor?.toARGB32(),
+        'colorizeAsset': colorizeAsset,
+        'isFavorite': isFavorite,
+        'purchaseDate': purchaseDate?.toIso8601String(),
+        'registrationMethod': registrationMethod,
+        'lastWornLabel': lastWornLabel,
+      };
+
+  factory GarmentItem.fromJson(Map<String, dynamic> json) {
+    int? colorValue(Object? value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    Uint8List? decodedImage;
+    final encodedImage = json['imageBytes'];
+    if (encodedImage is String && encodedImage.isNotEmpty) {
+      decodedImage = base64Decode(encodedImage);
+    }
+    final purchaseDate = json['purchaseDate'];
+    final tintColorValue = colorValue(json['tintColor']);
+    return GarmentItem(
+      id: json['id'] as String?,
+      name: json['name'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      detailCategory: json['detailCategory'] as String? ?? '',
+      fit: json['fit'] as String? ?? '기본',
+      color: json['color'] as String? ?? '',
+      location: json['location'] as String? ?? '',
+      tone: Color(colorValue(json['tone']) ?? 0xFFEAF4EE),
+      assetPath: json['assetPath'] as String?,
+      imageBytes: decodedImage,
+      tintColor: tintColorValue == null ? null : Color(tintColorValue),
+      colorizeAsset: json['colorizeAsset'] as bool? ?? false,
+      isFavorite: json['isFavorite'] as bool? ?? false,
+      purchaseDate:
+          purchaseDate is String ? DateTime.tryParse(purchaseDate) : null,
+      registrationMethod: json['registrationMethod'] as String? ?? '기본 옷장',
+      lastWornLabel: json['lastWornLabel'] as String? ?? '미기록',
+    );
+  }
+
+  GarmentItem copyWith({
+    String? id,
+    String? name,
+    String? category,
+    String? detailCategory,
+    String? fit,
+    String? color,
+    String? location,
+    Color? tone,
+    String? assetPath,
+    Uint8List? imageBytes,
+    Color? tintColor,
+    bool? colorizeAsset,
+    bool? isFavorite,
+    DateTime? purchaseDate,
+    String? registrationMethod,
+    String? lastWornLabel,
+  }) =>
+      GarmentItem(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        category: category ?? this.category,
+        detailCategory: detailCategory ?? this.detailCategory,
+        fit: fit ?? this.fit,
+        color: color ?? this.color,
+        location: location ?? this.location,
+        tone: tone ?? this.tone,
+        assetPath: assetPath ?? this.assetPath,
+        imageBytes: imageBytes ?? this.imageBytes,
+        tintColor: tintColor ?? this.tintColor,
+        colorizeAsset: colorizeAsset ?? this.colorizeAsset,
+        isFavorite: isFavorite ?? this.isFavorite,
+        purchaseDate: purchaseDate ?? this.purchaseDate,
+        registrationMethod: registrationMethod ?? this.registrationMethod,
+        lastWornLabel: lastWornLabel ?? this.lastWornLabel,
+      );
 }
 
 const starterBasicGarments = <GarmentItem>[
@@ -9229,7 +11331,8 @@ final femaleStarterGarments = <GarmentItem>[
 List<GarmentItem> starterGarmentsForGender(String gender) =>
     List<GarmentItem>.unmodifiable([
       ...starterBasicGarments,
-      ...(gender == '남' ? maleStarterGarments : femaleStarterGarments),
+      if (gender == '남') ...maleStarterGarments,
+      if (gender == '여') ...femaleStarterGarments,
     ]);
 
 const sampleGarments = [
@@ -9290,56 +11393,72 @@ class GarmentVisual extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color.lerp(Colors.white, item.tone, .76)!, item.tone],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(radius)),
-          child: item.imageBytes != null
-              ? Padding(
-                  padding: EdgeInsets.all(fillUploadedPhoto ? 0 : 8),
-                  child: Image.memory(item.imageBytes!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: fillUploadedPhoto ? BoxFit.cover : BoxFit.contain,
-                      semanticLabel: item.name))
-              : item.assetPath == null
-                  ? Icon(
-                      switch (item.category) {
-                        '상의' => Icons.checkroom_rounded,
-                        '하의' => Icons.dry_cleaning_rounded,
-                        '신발' => Icons.ice_skating_rounded,
-                        _ => Icons.style_rounded
-                      },
-                      size: size == double.infinity ? 46 : size * .45,
-                      color: item.tone == AppColors.ink
-                          ? Colors.white
-                          : AppColors.ink)
-                  : Padding(
-                      padding: EdgeInsets.all(fillUploadedPhoto ? 0 : 8),
-                      child: item.colorizeAsset && item.tintColor != null
-                          ? ColorizedGarmentAsset(
-                              assetPath: item.assetPath!,
-                              color: item.tintColor!,
-                              fit: fillUploadedPhoto
-                                  ? BoxFit.cover
-                                  : BoxFit.contain,
-                              semanticLabel: item.name)
-                          : Image.asset(item.assetPath!,
-                              width: double.infinity,
-                              height: double.infinity,
-                              fit: fillUploadedPhoto
-                                  ? BoxFit.cover
-                                  : BoxFit.contain,
-                              semanticLabel: item.name)),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final recoveredSample = garmentSampleForDisplay(item);
+    final shouldRecoverAiSleeveless = recoveredSample != null &&
+        item.registrationMethod.contains('AI') &&
+        _isSleevelessGarment(item);
+    final visibleImageBytes =
+        shouldRecoverAiSleeveless ? null : item.imageBytes;
+    final visibleAssetPath = shouldRecoverAiSleeveless
+        ? recoveredSample.assetPath
+        : item.assetPath ?? recoveredSample?.assetPath;
+    final shouldColorize = visibleAssetPath != null &&
+        item.tintColor != null &&
+        (item.colorizeAsset || recoveredSample != null);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color.lerp(Colors.white, item.tone, .76)!, item.tone],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(radius)),
+        child: visibleImageBytes != null
+            ? Padding(
+                padding: EdgeInsets.all(fillUploadedPhoto ? 0 : 8),
+                child: Image.memory(visibleImageBytes,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: fillUploadedPhoto ? BoxFit.cover : BoxFit.contain,
+                    semanticLabel: item.name))
+            : visibleAssetPath == null
+                ? Icon(
+                    switch (item.category) {
+                      '상의' => Icons.checkroom_rounded,
+                      '하의' => Icons.dry_cleaning_rounded,
+                      '신발' => Icons.ice_skating_rounded,
+                      _ => Icons.style_rounded
+                    },
+                    size: size == double.infinity ? 46 : size * .45,
+                    color: item.tone == AppColors.ink
+                        ? Colors.white
+                        : AppColors.ink)
+                : Padding(
+                    padding: EdgeInsets.all(fillUploadedPhoto ? 0 : 8),
+                    child: shouldColorize
+                        ? ColorizedGarmentAsset(
+                            key: const ValueKey('garment-recovered-sample'),
+                            assetPath: visibleAssetPath,
+                            color: item.tintColor!,
+                            fit: fillUploadedPhoto
+                                ? BoxFit.cover
+                                : BoxFit.contain,
+                            semanticLabel: item.name)
+                        : Image.asset(visibleAssetPath,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: fillUploadedPhoto
+                                ? BoxFit.cover
+                                : BoxFit.contain,
+                            semanticLabel: item.name)),
+      ),
+    );
+  }
 }
